@@ -1,28 +1,3 @@
-# =============================================================================
-# QOTEX SIGNAL BOT - REQUIREMENTS.TXT
-# Minimum supported Python version: 3.8+
-# =============================================================================
-
-# --- CORE DATA SCIENCE & ANALYSIS ---
-pandas>=1.5.0          # DataFrame operations, OHLCV processing, rolling calculations
-numpy>=1.24.0          # Numerical computations, array operations, statistical functions
-
-# --- WEB DASHBOARD (Optional) ---
-Flask>=2.3.0           # Real-time signal web interface (http://localhost:5000)
-
-# --- DATE & TIME UTILITIES ---
-python-dateutil>=2.8.0 # Enhanced datetime parsing and timezone handling
-pytz>=2023.3           # Timezone database for GMT session calculations
-
-# --- PERFORMANCE & MONITORING ---
-psutil>=5.9.0          # System resource monitoring (CPU/Memory usage per thread)
-
-# --- INSTALLATION COMMANDS ---
-# Install all dependencies:
-# pip install -r requirements.txt
-#
-# Install without web interface (minimal):
-# pip install pandas numpy python-dateutil pytz
-#
-# Install with latest versions:
-# pip install --upgrade pandas numpy flask
+streamlit>=1.30.0
+pandas>=1.5.0
+numpy>=1.24.0
