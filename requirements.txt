@@ -1,31 +1,26 @@
 # =============================================================================
-# QOTEX PRO SIGNAL GENERATOR v3.1 - REQUIREMENTS.TXT
-# Minimum Python Version: 3.9+
+# ZOHA SIGNAL TERMINAL v1.3 - REQUIREMENTS.TXT
+# ALL Quotex OTC Markets | BDT Timezone | PDF + Technical Strategies
 # =============================================================================
 
 # --- CORE WEB FRAMEWORK ---
-streamlit>=1.30.0          # Advanced web UI framework for real-time dashboards
+streamlit>=1.30.0          # Web UI framework for real-time signal dashboard
 
 # --- DATA SCIENCE & ANALYSIS ---
-pandas>=1.5.0              # High-performance data manipulation and analysis
-numpy>=1.24.0              # Numerical computing and random number generation
+pandas>=1.5.0              # DataFrame operations for signal storage
+numpy>=1.24.0              # Numerical computing & Monte Carlo simulations
 
 # --- ADVANCED VISUALIZATION ---
-plotly>=5.15.0             # Interactive charts (heatmaps, scatter plots, pie charts)
-plotly-express>=0.4.0      # Simplified Plotly syntax for quick chart generation
+plotly>=5.15.0             # Interactive charts (correlation, performance, strategy)
+plotly-express>=0.4.0      # Simplified Plotly syntax
 
-# --- SYSTEM & UTILITIES ---
-python-dateutil>=2.8.2     # Date/time parsing and timezone handling
-pytz>=2023.3               # World timezone definitions
+# --- TIMEZONE SUPPORT ---
+pytz>=2023.3               # BDT (Bangladesh Time) timezone handling
 
-# --- INSTALLATION COMMANDS ---
-# Install all dependencies: pip install -r requirements.txt
-# Upgrade all packages: pip install --upgrade -r requirements.txt
-# Install without cache: pip install --no-cache-dir -r requirements.txt
+# --- INSTALLATION ---
+# Install all: pip install -r requirements.txt
+# Upgrade all: pip install --upgrade -r requirements.txt
 
-# --- OPTIONAL PERFORMANCE BOOSTERS ---
-# numba>=0.58.0              # Just-in-time compilation for faster calculations (optional)
-# bottleneck>=1.3.7          # Fast NumPy array functions (optional)
-
-# --- SECURITY NOTE ---
-# All packages are verified and compatible with Streamlit Cloud deployment
+# --- COMPATIBILITY NOTES ---
+# Python 3.9+ required for type hints and session state features
+# All packages verified for Streamlit Cloud deployment
