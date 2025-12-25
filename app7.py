@@ -1,7 +1,7 @@
 # =============================================================================
-# QOTEX SIGNAL BOT - STREAMLIT VERSION
-# Save as: qotex_streamlit_bot.py
-# Run with: streamlit run qotex_streamlit_bot.py
+# QOTEX SIGNAL BOT - STREAMLIT VERSION (FIXED)
+# Save as: app7.py
+# Run with: streamlit run app7.py
 # =============================================================================
 
 import streamlit as st
@@ -13,7 +13,6 @@ import queue
 from datetime import datetime, timedelta
 from collections import defaultdict
 import logging
-import json
 
 # Configure Streamlit page
 st.set_page_config(
@@ -24,7 +23,7 @@ st.set_page_config(
 )
 
 # =============================================================================
-# CONFIGURATION MODULE (Same as before)
+# CONFIGURATION MODULE
 # =============================================================================
 
 class Config:
@@ -35,9 +34,7 @@ class Config:
         'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
         'OTC_GOLD', 'OTC_SILVER', 'OTC_WTI', 'OTC_BRENT',
         'OTC_EURUSD', 'OTC_GBPUSD', 'OTC_USDJPY', 'OTC_AUDUSD', 'OTC_USDCAD',
-        'OTC_NZDUSD', 'OTC_EURGBP', 'OTC_GBPJPY', 'OTC_EURJPY',
-        'CRYPTO_BTC', 'CRYPTO_ETH', 'CRYPTO_LTC', 'CRYPTO_XRP', 'CRYPTO_BCH',
-        'OTC_US_500', 'VOLATILITY_75'  # Reduced for demo
+        'CRYPTO_BTC', 'CRYPTO_ETH', 'VOLATILITY_75'  # Reduced for demo
     ]
     
     SIGNAL_INTERVAL_SECONDS = 240
@@ -49,7 +46,7 @@ class Config:
     DOJI_PARAMS = {'ema_period': 8, 'entry_offset': 1, 'stop_offset': 0.5, 'min_doji_size': 0.05}
 
 # =============================================================================
-# DATA FEED ENGINE
+# DATA FEED ENGINE (FIXED)
 # =============================================================================
 
 class DataFeed:
@@ -59,11 +56,13 @@ class DataFeed:
         self.lock = threading.Lock()
         
     def fetch_data(self, pair, minutes=1000):
+        """Fetch synthetic OTC data (FIXED SYNTAX)"""
         try:
             base_volatility = 0.002 if 'VOLATILITY' in pair else 0.0004
             np.random.seed(int(time.time()) + hash(pair) % 10000)
             
-            end_time = datetime datetime.now()
+            # ✅ FIXED LINE - was: datetime datetime.now()
+            end_time = datetime.now()
             start_time = end_time - timedelta(minutes=minutes)
             time_index = pd.date_range(start=start_time, end=end_time, freq='1min')
             
@@ -183,7 +182,7 @@ class AccuracyValidator:
         projected_accuracy = (confidence + historical_accuracy) / 2
         
         if projected_accuracy >= Config.ACCURACY_THRESHOLD:
-            five_hour_confidence = projected_accuracy * 0.95  # Simulate 5H prediction
+            five_hour_confidence = projected_accuracy * 0.95
             return {
                 'signal_type': signal_type,
                 'entry_price': price,
@@ -212,7 +211,7 @@ class SignalManager:
         self.last_signal_time = defaultdict(lambda: datetime.min)
         self.running = False
         
-        # Thread-safe storage for Streamlit
+        # Thread-safe storage
         self._history_lock = threading.Lock()
         self._latest_signals = {}
     
@@ -243,7 +242,7 @@ class SignalManager:
                 if validated_signal:
                     self.last_signal_time[pair] = datetime.now()
                     
-                    # Format for Streamlit
+                    # Format time as HH:MM:SS
                     formatted_time = validated_signal['generated_at'].replace(second=0, microsecond=0)
                     time_str = formatted_time.strftime('%H:%M:%S')
                     
@@ -346,7 +345,7 @@ def main():
                     avg_accuracy.metric("Avg Accuracy", f"{avg_acc:.1f}%")
                 active_pairs.metric("Active Pairs", f"{len(latest)}/{len(Config.OTC_PAIRS)}")
                 
-                # Display latest signals (top 10)
+                # Display latest signals
                 with signals_container.container():
                     if latest:
                         for pair, sig in list(latest.items())[-10:]:
@@ -362,7 +361,7 @@ def main():
                     else:
                         st.info("Waiting for first signal...")
                 
-                # Display recent history (bottom 10)
+                # Display recent history
                 with history_container.container():
                     if history:
                         for sig in history[-10:]:
