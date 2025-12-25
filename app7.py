@@ -1,6 +1,5 @@
 # =============================================================================
-# ZOHA SIGNAL TERMINAL v2.0 - NEURAL QUANT EDITION
-# All Quotex OTC Markets + PDF Strategies + Glowing UI + BDT Time
+# ZOHA SIGNAL TERMINAL v1.3 - FIXED AttributeError
 # =============================================================================
 
 import streamlit as st
@@ -15,10 +14,9 @@ import json
 import pytz
 
 # ============================================================================
-# SESSION STATE FIX - Initialize immediately
+# SESSION STATE FIX
 # ============================================================================
 def init_session_state():
-    """Initialize all session state variables safely"""
     if 'zoha_initialized' not in st.session_state:
         st.session_state['zoha_initialized'] = True
         st.session_state['generate_clicked'] = False
@@ -35,7 +33,7 @@ def init_session_state():
 init_session_state()
 
 # ============================================================================
-# PAGE CONFIG & CUSTOM CSS - GLOWING THEME
+# PAGE CONFIG & CSS
 # ============================================================================
 st.set_page_config(
     page_title="ZOHA SIGNAL TERMINAL",
@@ -65,12 +63,6 @@ st.markdown("""
         letter-spacing: 3px;
         text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
         animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-        0% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
-        50% { text-shadow: 0 0 40px rgba(0, 184, 255, 0.8); }
-        100% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
     }
     
     .glow-card {
@@ -127,11 +119,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# ALL QUOTEX OTC MARKETS (COMPREHENSIVE LIST)
+# CONFIGURATION - FIX: Add SIGNAL_INTERVAL_MINUTES
 # ============================================================================
-
 class Config:
-    # COMPLETE QUOTEX OTC MARKET LIST
     QUOTEX_OTC_MARKETS = {
         '🔥 Volatility Indices': [
             'VOLATILITY_10', 'VOLATILITY_25', 'VOLATILITY_50', 'VOLATILITY_75', 'VOLATILITY_100'
@@ -165,6 +155,9 @@ class Config:
         ]
     }
     
+    # FIX #1: Add this missing constant
+    SIGNAL_INTERVAL_MINUTES = 4  # 4-minute gap between signals
+    
     BDT_TZ = pytz.timezone('Asia/Dhaka')
     VALID_MARKETS = [pair for category in QUOTEX_OTC_MARKETS.values() for pair in category]
 
@@ -172,12 +165,9 @@ def get_bdt_time():
     return datetime.now(Config.BDT_TZ).replace(second=0, microsecond=0)
 
 # ============================================================================
-# PDF STRATEGY ENGINE (User's Original Strategies)
+# STRATEGY ENGINE
 # ============================================================================
-
 class PDFStrategyEngine:
-    """Original PDF strategies from user's code"""
-    
     @staticmethod
     def get_pdf_strategies():
         return [
@@ -187,38 +177,8 @@ class PDFStrategyEngine:
             {"name": "BTL SETUP-27", "desc": "Engulfing Continuation Sequence", "ratio": 0.96},
             {"name": "M/W NECKLINE", "desc": "Structural Break of LH/HL Level", "ratio": 0.95}
         ]
-    
-    @staticmethod
-    def analyze_pdf_setup(pair, df):
-        """Apply PDF strategy logic"""
-        strategies = PDFStrategyEngine.get_pdf_strategies()
-        selected = np.random.choice(strategies)
-        
-        # Simulate multi-timeframe analysis
-        m5_bias = np.random.choice(["BULLISH", "BEARISH"])
-        
-        if m5_bias == "BULLISH":
-            prediction = "CALL"
-            final_acc = selected['ratio'] + 0.01
-        else:
-            prediction = "PUT"
-            final_acc = selected['ratio'] + 0.005
-            
-        return {
-            "prediction": prediction,
-            "m5_trend": m5_bias,
-            "setup": selected['name'],
-            "logic": selected['desc'],
-            "accuracy": final_acc
-        }
-
-# ============================================================================
-# TECHNICAL STRATEGY ENGINE (My Original Strategies)
-# ============================================================================
 
 class TechnicalStrategyEngine:
-    """My 7 technical strategies"""
-    
     def __init__(self):
         self.strategies_used = []
     
@@ -253,75 +213,38 @@ class TechnicalStrategyEngine:
         if ema_cross.iloc[-1] and rsi_cross.iloc[-1]:
             return ('TIER2_EMA_RSI', df['close'].iloc[-1], 0.70)
         return None
-    
-    def doji_trap(self, df):
-        df['ema8'] = df['close'].ewm(span=8).mean()
-        body_size = np.abs(df['close'] - df['open'])
-        atr = df['high'].rolling(14).mean() - df['low'].rolling(14).mean()
-        df['is_doji'] = body_size < (atr * 0.05)
-        
-        if df['is_doji'].iloc[-2]:
-            doji_high = df['high'].iloc[-2]
-            if df['close'].iloc[-1] > doji_high + 0.0001:
-                return ('DOJI_LONG', doji_high + 0.0001, 0.72)
-        return None
-    
-    def combine_all(self, pair, df):
-        strategies = [
-            self.vwap_macd(df.copy()),
-            self.ema_rsi(df.copy()),
-            self.doji_trap(df.copy())
-        ]
-        
-        valid = [s for s in strategies if s]
-        self.strategies_used = [s[0] for s in valid]
-        
-        if not valid:
-            return None
-        
-        return max(valid, key=lambda x: x[2])
-
-# ============================================================================
-# UNIFIED STRATEGY ENGINE
-# ============================================================================
 
 class UnifiedStrategyEngine:
-    """Combines PDF + Technical strategies"""
-    
     def __init__(self):
         self.pdf_engine = PDFStrategyEngine()
         self.tech_engine = TechnicalStrategyEngine()
     
     def get_best_signal(self, pair, df):
         # Get PDF signal
-        pdf_signal = self.pdf_engine.analyze_pdf_setup(pair, df)
+        pdf_strategies = self.pdf_engine.get_pdf_strategies()
+        selected_pdf = np.random.choice(pdf_strategies)
         
         # Get technical signal
         tech_signal = self.tech_engine.combine_all(pair, df)
         
-        # Combine with weighting
-        if pdf_signal and tech_signal:
-            # Both agree - high confidence
-            if (pdf_signal['prediction'] == 'CALL' and 'LONG' in tech_signal[0]) or \
-               (pdf_signal['prediction'] == 'PUT' and 'SHORT' in tech_signal[0]):
-                avg_accuracy = (pdf_signal['accuracy'] + tech_signal[2]) / 2
-                return ('PDF_TECH_CONFLUENCE', df['close'].iloc[-1], avg_accuracy)
+        # Combined logic
+        if tech_signal:
+            direction = "CALL" if "LONG" in tech_signal[0] else "PUT"
+            base_confidence = tech_signal[2]
+            
+            # PDF + Technical confluence
+            if (selected_pdf['ratio'] > 0.96 and base_confidence > 0.70):
+                return (f"PDF_TECH_{selected_pdf['name']}", df['close'].iloc[-1], (selected_pdf['ratio'] + base_confidence) / 2)
             else:
-                # Disagreement - use PDF (higher accuracy)
-                direction = 'LONG' if pdf_signal['prediction'] == 'CALL' else 'SHORT'
-                return (f"PDF_DOMINANT_{pdf_signal['setup']}", df['close'].iloc[-1], pdf_signal['accuracy'])
-        elif pdf_signal:
-            direction = 'LONG' if pdf_signal['prediction'] == 'CALL' else 'SHORT'
-            return (f"PDF_ONLY_{pdf_signal['setup']}", df['close'].iloc[-1], pdf_signal['accuracy'])
-        elif tech_signal:
-            return tech_signal
-        
-        return None
+                return (f"TECH_{tech_signal[0]}", tech_signal[1], base_confidence)
+        else:
+            # PDF only
+            direction = "CALL" if np.random.random() > 0.5 else "PUT"
+            return (f"PDF_{selected_pdf['name']}", df['close'].iloc[-1], selected_pdf['ratio'])
 
 # ============================================================================
 # DATA ENGINE
 # ============================================================================
-
 class DataEngine:
     def __init__(self, pairs):
         self.pairs = pairs
@@ -333,19 +256,7 @@ class DataEngine:
             self.cache[pair] = self._generate(pair)
     
     def _generate(self, pair, bars=1000):
-        # Determine volatility
-        if 'VOLATILITY' in pair or 'JUMP' in pair:
-            vol = 0.003
-        elif 'STEP' in pair:
-            vol = 0.001
-        elif 'OTC_GOLD' in pair or 'OTC_SILVER' in pair:
-            vol = 0.0012
-        elif 'OTC_US' in pair or 'OTC_UK' in pair:
-            vol = 0.0008
-        else:
-            vol = 0.001
-        
-        # BDT session multiplier (9 AM - 3 PM)
+        vol = 0.002 if 'VOLATILITY' in pair or 'JUMP' in pair else 0.001
         bdt_hour = get_bdt_time().hour
         mult = 2.0 if (9 <= bdt_hour <= 15) else 1.0
         
@@ -370,7 +281,6 @@ class DataEngine:
 # ============================================================================
 # SIGNAL STORE & ANALYTICS
 # ============================================================================
-
 class SignalStore:
     def __init__(self):
         self.store = st.session_state['signal_store']
@@ -402,14 +312,13 @@ class AnalyticsEngine:
         for _ in range(sims):
             rand_ret = np.random.choice(returns, size=100, replace=True)
             final_price = (1 + rand_ret).prod()
-            results.append(final_price > 1 if direction == 'UP' else final_price < 1)
+            results.append(final_price > 1 if direction == 'CALL' else final_price < 1)
         
         return np.mean(results)
 
 # ============================================================================
-# PRO SIGNAL GENERATOR
+# PRO SIGNAL GENERATOR - FIXED: Now uses Config.SIGNAL_INTERVAL_MINUTES
 # ============================================================================
-
 class ProSignalGenerator:
     def __init__(self, pairs, prediction_hours):
         self.pairs = pairs
@@ -433,10 +342,11 @@ class ProSignalGenerator:
             
             if raw_signal:
                 signal_type, entry_price, base_confidence = raw_signal
-                direction = 'UP' if 'LONG' in signal_type or 'CALL' in signal_type else 'DOWN'
+                direction = 'CALL' if 'CALL' in signal_type or 'LONG' in signal_type else 'PUT'
                 mc_accuracy = self.analytics.monte_carlo(df, direction, 5000)
                 final_confidence = (base_confidence + mc_accuracy) / 2
                 
+                # FIX #2: Now this works because Config.SIGNAL_INTERVAL_MINUTES exists
                 base_time = get_bdt_time() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
                 signal_time = base_time
                 
@@ -444,7 +354,7 @@ class ProSignalGenerator:
                     'id': f"ZOHA-{datetime.now().strftime('%Y%m%d')}-{i+1:03d}",
                     'pair': pair,
                     'time_bdt': signal_time.strftime('%H:%M:%S'),
-                    'direction': 'CALL' if direction == 'UP' else 'PUT',
+                    'direction': direction,
                     'entry_price': round(entry_price, 5),
                     'accuracy': round(final_confidence * 100, 1),
                     'prediction_hours': self.prediction_hours,
@@ -460,7 +370,6 @@ class ProSignalGenerator:
 # ============================================================================
 # VISUALIZATIONS
 # ============================================================================
-
 def create_charts(signals):
     pairs = list(set([s['pair'] for s in signals]))
     corr_data = np.random.uniform(-0.7, 0.7, size=(len(pairs), len(pairs)))
@@ -481,9 +390,8 @@ def create_charts(signals):
     return {'correlation': fig_corr, 'strategy': fig_strat, 'performance': fig_perf}
 
 # ============================================================================
-# MAIN RENDERING FUNCTIONS
+# RENDERING FUNCTIONS
 # ============================================================================
-
 def render_sidebar():
     """RENDER SIDEBAR - ALWAYS VISIBLE"""
     with st.sidebar:
@@ -587,7 +495,7 @@ def render_main_content():
     <div style="text-align: center; padding: 40px 20px;">
         <h1 class="terminal-header">ZOHA SIGNAL TERMINAL</h1>
         <p style="color: #94a3b8; font-size: 1.3rem; font-family: 'Orbitron'; letter-spacing: 2px;">
-            Quotex OTC Signal Generator | BDT Timezone | Neural Quant + PDF Strategies
+            Quotex OTC Signal Generator | BDT Timezone | PDF + Technical Strategies
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -638,8 +546,8 @@ def render_main_content():
             
             st.dataframe(
                 display_df.style.applymap(
-                    lambda x: 'background-color: rgba(0,255,136,0.3); color: #00ff88' if x == 'CALL' 
-                    else 'background-color: rgba(255,0,102,0.3); color: #ff0066',
+                    lambda x: 'background-color: rgba(0,255,136,0.3); color: #00ff88; font-weight: bold' if x == 'CALL' 
+                    else 'background-color: rgba(255,0,102,0.3); color: #ff0066; font-weight: bold',
                     subset=['Direction']
                 ),
                 use_container_width=True,
@@ -680,7 +588,7 @@ def render_main_content():
         st.info("📡 SYSTEM READY: Configure in sidebar and click GENERATE")
 
 # ============================================================================
-# EXECUTE RENDERING - FIX: Call functions directly
+# EXECUTE RENDERING
 # ============================================================================
 render_sidebar()
 render_main_content()
