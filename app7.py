@@ -1,5 +1,5 @@
 # =============================================================================
-# QOTEX SIGNAL BOT - STREAMLIT VERSION (FIXED)
+# QOTEX SIGNAL BOT - STREAMLIT VERSION WITH PAIR SELECTION
 # Save as: app7.py
 # Run with: streamlit run app7.py
 # =============================================================================
@@ -27,14 +27,21 @@ st.set_page_config(
 # =============================================================================
 
 class Config:
-    OTC_PAIRS = [
+    ALL_OTC_PAIRS = [  # All available pairs for selection
         'VOLATILITY_100', 'VOLATILITY_75', 'VOLATILITY_50', 'VOLATILITY_25', 'VOLATILITY_10',
         'STEP_INDEX', 'STEP_200', 'STEP_500', 
         'JUMP_10', 'JUMP_25', 'JUMP_50', 'JUMP_75', 'JUMP_100',
         'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
         'OTC_GOLD', 'OTC_SILVER', 'OTC_WTI', 'OTC_BRENT',
         'OTC_EURUSD', 'OTC_GBPUSD', 'OTC_USDJPY', 'OTC_AUDUSD', 'OTC_USDCAD',
-        'CRYPTO_BTC', 'CRYPTO_ETH', 'VOLATILITY_75'  # Reduced for demo
+        'OTC_NZDUSD', 'OTC_EURGBP', 'OTC_GBPJPY', 'OTC_EURJPY',
+        'OTC_USDSGD', 'OTC_USDZAR', 'OTC_USDMXN', 'OTC_USDTRY', 'OTC_USDCNH',
+        'OTC_AUDJPY', 'OTC_CADJPY', 'OTC_CHFJPY', 'OTC_EURCAD', 'OTC_EURAUD',
+        'CRYPTO_BTC', 'CRYPTO_ETH', 'CRYPTO_LTC', 'CRYPTO_XRP', 'CRYPTO_BCH',
+        'OTC_US_500', 'OTC_US_TECH_100', 'OTC_WALL_STREET_30', 
+        'OTC_UK_100', 'OTC_GERMANY_40', 'OTC_FRANCE_40', 'OTC_SWISS_20',
+        'OTC_JAPAN_225', 'OTC_HONG_KONG_50', 'OTC_CHINA_A50',
+        'CUSTOM_1', 'CUSTOM_2', 'CUSTOM_3', 'CUSTOM_4', 'CUSTOM_5'
     ]
     
     SIGNAL_INTERVAL_SECONDS = 240
@@ -46,7 +53,7 @@ class Config:
     DOJI_PARAMS = {'ema_period': 8, 'entry_offset': 1, 'stop_offset': 0.5, 'min_doji_size': 0.05}
 
 # =============================================================================
-# DATA FEED ENGINE (FIXED)
+# DATA FEED ENGINE
 # =============================================================================
 
 class DataFeed:
@@ -56,12 +63,10 @@ class DataFeed:
         self.lock = threading.Lock()
         
     def fetch_data(self, pair, minutes=1000):
-        """Fetch synthetic OTC data (FIXED SYNTAX)"""
         try:
             base_volatility = 0.002 if 'VOLATILITY' in pair else 0.0004
             np.random.seed(int(time.time()) + hash(pair) % 10000)
             
-            # ✅ FIXED LINE - was: datetime datetime.now()
             end_time = datetime.now()
             start_time = end_time - timedelta(minutes=minutes)
             time_index = pd.date_range(start=start_time, end=end_time, freq='1min')
@@ -201,8 +206,9 @@ class AccuracyValidator:
 # =============================================================================
 
 class SignalManager:
-    def __init__(self):
-        self.data_feed = DataFeed(Config.OTC_PAIRS)
+    def __init__(self, pairs):
+        self.pairs = pairs
+        self.data_feed = DataFeed(self.pairs)
         self.strategy_engine = StrategyEngine(self.data_feed)
         self.accuracy_validator = AccuracyValidator()
         
@@ -217,7 +223,7 @@ class SignalManager:
     
     def start(self):
         self.running = True
-        for pair in Config.OTC_PAIRS:
+        for pair in self.pairs:
             thread = threading.Thread(target=self._pair_worker, args=(pair,), daemon=True)
             thread.start()
     
@@ -277,6 +283,32 @@ class SignalManager:
 # STREAMLIT UI
 # =============================================================================
 
+def pair_selection_sidebar():
+    """Pair selection interface in sidebar"""
+    st.header("📈 Pair Selection")
+    
+    # Multi-select widget
+    selected_pairs = st.multiselect(
+        "Choose pairs to monitor:",
+        options=Config.ALL_OTC_PAIRS,
+        default=['VOLATILITY_100', 'OTC_EURUSD', 'OTC_GOLD', 'CRYPTO_BTC', 'STEP_INDEX'],
+        help="Select multiple pairs to generate signals from"
+    )
+    
+    # Quick select buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Select All", key="select_all"):
+            return Config.ALL_OTC_PAIRS
+    with col2:
+        if st.button("Clear All", key="clear_all"):
+            return []
+    
+    # Display count
+    st.info(f"**{len(selected_pairs)}** pairs selected")
+    
+    return selected_pairs
+
 def main():
     """Main Streamlit application"""
     
@@ -286,9 +318,17 @@ def main():
     # Sidebar controls
     with st.sidebar:
         st.header("📊 Bot Controls")
+        
+        # Pair selection
+        selected_pairs = pair_selection_sidebar()
+        
+        st.markdown("---")
+        
+        # Start/Stop buttons
         if st.button("🚀 START BOT", key="start", type="primary"):
             st.session_state['bot_running'] = True
-            st.success("Bot started! Check main panel for signals.")
+            st.session_state['selected_pairs'] = selected_pairs
+            st.success("Bot started with selected pairs!")
         
         if st.button("⏹️ STOP BOT", key="stop", type="secondary"):
             st.session_state['bot_running'] = False
@@ -296,15 +336,16 @@ def main():
         
         st.markdown("---")
         st.header("⚙️ Configuration")
-        st.info(f"Monitoring **{len(Config.OTC_PAIRS)}** pairs")
         st.info(f"Signal interval: **{Config.SIGNAL_INTERVAL_SECONDS}** seconds")
         st.info(f"Accuracy threshold: **{Config.ACCURACY_THRESHOLD*100}%**")
     
     # Initialize session state
     if 'bot_running' not in st.session_state:
         st.session_state['bot_running'] = False
+    if 'selected_pairs' not in st.session_state:
+        st.session_state['selected_pairs'] = ['VOLATILITY_100']
     if 'signal_manager' not in st.session_state:
-        st.session_state['signal_manager'] = SignalManager()
+        st.session_state['signal_manager'] = None
     
     # Layout
     col1, col2, col3 = st.columns(3)
@@ -325,6 +366,20 @@ def main():
     
     # Bot runtime logic
     if st.session_state['bot_running']:
+        # Create or recreate manager if pairs changed
+        if (st.session_state['signal_manager'] is None or 
+            st.session_state['selected_pairs'] != st.session_state.get('last_pairs', [])):
+            
+            # Stop old bot if running
+            if st.session_state['signal_manager'] is not None:
+                st.session_state['signal_manager'].stop()
+                time.sleep(1)
+            
+            # Create new manager with selected pairs
+            st.session_state['last_pairs'] = st.session_state['selected_pairs'].copy()
+            st.session_state['signal_manager'] = SignalManager(st.session_state['selected_pairs'])
+            st.toast(f"Bot restarted with {len(st.session_state['selected_pairs'])} pairs!", icon="🔄")
+        
         manager = st.session_state['signal_manager']
         
         if not hasattr(manager, '_started'):
@@ -343,7 +398,7 @@ def main():
                 if history:
                     avg_acc = np.mean([h['accuracy'] for h in history[-50:]])
                     avg_accuracy.metric("Avg Accuracy", f"{avg_acc:.1f}%")
-                active_pairs.metric("Active Pairs", f"{len(latest)}/{len(Config.OTC_PAIRS)}")
+                active_pairs.metric("Active Pairs", f"{len(latest)}/{len(st.session_state['selected_pairs'])}")
                 
                 # Display latest signals
                 with signals_container.container():
@@ -381,7 +436,9 @@ def main():
                 st.error(f"Runtime error: {e}")
                 time.sleep(2)
     else:
-        st.info("⏸️ Bot is stopped. Click 'START BOT' in the sidebar to begin.")
+        # Show selected pairs even when bot is stopped
+        st.info(f"⏸️ Bot is stopped. Selected pairs: {', '.join(st.session_state['selected_pairs'])}")
+        st.info("Click 'START BOT' in the sidebar to begin.")
 
 if __name__ == "__main__":
     main()
