@@ -1,17 +1,16 @@
 # =============================================================================
-# ZOHA SIGNAL TERMINAL v1.3 - FIXED AttributeError
+# ZOHA SIGNAL TERMINAL v1.4 - FIXED DIRECTIONAL SIGNALS
 # =============================================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
+import pytz
 from datetime import datetime, timedelta
 from collections import defaultdict
 import hashlib
 import json
-import pytz
 
 # ============================================================================
 # SESSION STATE FIX
@@ -119,7 +118,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# CONFIGURATION - FIX: Add SIGNAL_INTERVAL_MINUTES
+# CONFIGURATION
 # ============================================================================
 class Config:
     QUOTEX_OTC_MARKETS = {
@@ -155,9 +154,7 @@ class Config:
         ]
     }
     
-    # FIX #1: Add this missing constant
-    SIGNAL_INTERVAL_MINUTES = 4  # 4-minute gap between signals
-    
+    SIGNAL_INTERVAL_MINUTES = 4
     BDT_TZ = pytz.timezone('Asia/Dhaka')
     VALID_MARKETS = [pair for category in QUOTEX_OTC_MARKETS.values() for pair in category]
 
@@ -190,11 +187,20 @@ class TechnicalStrategyEngine:
         df['macd_signal'] = df['macd'].ewm(span=8).mean()
         df['macd_hist'] = df['macd'] - df['macd_signal']
         
-        price_cross = (df['close'].shift(1) < df['vwap'].shift(1)) & (df['close'] > df['vwap'])
-        macd_flip = (df['macd_hist'].shift(1) < 0) & (df['macd_hist'] > 0)
+        # Bullish signal
+        price_cross_up = (df['close'].shift(1) < df['vwap'].shift(1)) & (df['close'] > df['vwap'])
+        macd_flip_up = (df['macd_hist'].shift(1) < 0) & (df['macd_hist'] > 0)
         
-        if price_cross.iloc[-1] and macd_flip.iloc[-1]:
-            return ('TIER1_VWAP_MACD', df['close'].iloc[-1], 0.75)
+        if price_cross_up.iloc[-1] and macd_flip_up.iloc[-1]:
+            return ('TIER1_VWAP_MACD_LONG', df['close'].iloc[-1], 0.75)
+        
+        # Bearish signal
+        price_cross_down = (df['close'].shift(1) > df['vwap'].shift(1)) & (df['close'] < df['vwap'])
+        macd_flip_down = (df['macd_hist'].shift(1) > 0) & (df['macd_hist'] < 0)
+        
+        if price_cross_down.iloc[-1] and macd_flip_down.iloc[-1]:
+            return ('TIER1_VWAP_MACD_SHORT', df['close'].iloc[-1], 0.75)
+        
         return None
     
     def ema_rsi(self, df):
@@ -207,21 +213,25 @@ class TechnicalStrategyEngine:
         rs = gain / loss.replace(0, np.nan)
         df['rsi'] = 100 - (100 / (1 + rs))
         
-        ema_cross = (df['ema9'].shift(1) < df['ema21'].shift(1)) & (df['ema9'] > df['ema21'])
-        rsi_cross = (df['rsi'].shift(1) < 50) & (df['rsi'] > 50)
+        # Bullish signal
+        ema_cross_up = (df['ema9'].shift(1) < df['ema21'].shift(1)) & (df['ema9'] > df['ema21'])
+        rsi_cross_up = (df['rsi'].shift(1) < 50) & (df['rsi'] > 50)
         
-        if ema_cross.iloc[-1] and rsi_cross.iloc[-1]:
-            return ('TIER2_EMA_RSI', df['close'].iloc[-1], 0.70)
+        if ema_cross_up.iloc[-1] and rsi_cross_up.iloc[-1]:
+            return ('TIER2_EMA_RSI_LONG', df['close'].iloc[-1], 0.70)
+        
+        # Bearish signal
+        ema_cross_down = (df['ema9'].shift(1) > df['ema21'].shift(1)) & (df['ema9'] < df['ema21'])
+        rsi_cross_down = (df['rsi'].shift(1) > 50) & (df['rsi'] < 50)
+        
+        if ema_cross_down.iloc[-1] and rsi_cross_down.iloc[-1]:
+            return ('TIER2_EMA_RSI_SHORT', df['close'].iloc[-1], 0.70)
+        
         return None
     
-    # ============================================
-    # FIX: Added missing combine_all method
-    # ============================================
     def combine_all(self, pair, df):
-        """Combine all technical strategies and return the best signal"""
         signals = []
         
-        # Try each strategy
         vwap_signal = self.vwap_macd(df)
         if vwap_signal:
             signals.append(vwap_signal)
@@ -230,7 +240,6 @@ class TechnicalStrategyEngine:
         if ema_signal:
             signals.append(ema_signal)
         
-        # Return the signal with highest confidence, or None
         if signals:
             best_signal = max(signals, key=lambda x: x[2])
             self.strategies_used.append(best_signal[0])
@@ -243,25 +252,29 @@ class UnifiedStrategyEngine:
         self.tech_engine = TechnicalStrategyEngine()
     
     def get_best_signal(self, pair, df):
-        # Get PDF signal
         pdf_strategies = self.pdf_engine.get_pdf_strategies()
         selected_pdf = np.random.choice(pdf_strategies)
         
-        # Get technical signal
         tech_signal = self.tech_engine.combine_all(pair, df)
         
-        # Combined logic
         if tech_signal:
-            direction = "CALL" if "LONG" in tech_signal[0] else "PUT"
+            # Fixed direction detection
+            signal_name = tech_signal[0]
+            if "LONG" in signal_name or "CALL" in signal_name:
+                direction = "CALL"
+            elif "SHORT" in signal_name or "PUT" in signal_name:
+                direction = "PUT"
+            else:
+                direction = "CALL" if np.random.random() > 0.5 else "PUT"
+            
             base_confidence = tech_signal[2]
             
-            # PDF + Technical confluence
             if (selected_pdf['ratio'] > 0.96 and base_confidence > 0.70):
                 return (f"PDF_TECH_{selected_pdf['name']}", df['close'].iloc[-1], (selected_pdf['ratio'] + base_confidence) / 2)
             else:
                 return (f"TECH_{tech_signal[0]}", tech_signal[1], base_confidence)
         else:
-            # PDF only
+            # PDF only with balanced random direction
             direction = "CALL" if np.random.random() > 0.5 else "PUT"
             return (f"PDF_{selected_pdf['name']}", df['close'].iloc[-1], selected_pdf['ratio'])
 
@@ -340,7 +353,7 @@ class AnalyticsEngine:
         return np.mean(results)
 
 # ============================================================================
-# PRO SIGNAL GENERATOR - FIXED: Now uses Config.SIGNAL_INTERVAL_MINUTES
+# PRO SIGNAL GENERATOR
 # ============================================================================
 class ProSignalGenerator:
     def __init__(self, pairs, prediction_hours):
@@ -365,11 +378,11 @@ class ProSignalGenerator:
             
             if raw_signal:
                 signal_type, entry_price, base_confidence = raw_signal
-                direction = 'CALL' if 'CALL' in signal_type or 'LONG' in signal_type else 'PUT'
+                # Fixed direction detection
+                direction = 'CALL' if ('LONG' in signal_type or 'CALL' in signal_type) else 'PUT'
                 mc_accuracy = self.analytics.monte_carlo(df, direction, 5000)
                 final_confidence = (base_confidence + mc_accuracy) / 2
                 
-                # FIX #2: Now this works because Config.SIGNAL_INTERVAL_MINUTES exists
                 base_time = get_bdt_time() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
                 signal_time = base_time
                 
@@ -542,12 +555,16 @@ def render_main_content():
             sig['accuracy'] = round(min(99.0, sig['accuracy'] * risk_mult), 1)
         
         # Metrics
-        cols = st.columns([1, 1, 1, 1])
+        cols = st.columns([1, 1, 1, 1, 1])
+        call_count = len([s for s in signals if s['direction'] == 'CALL'])
+        put_count = len([s for s in signals if s['direction'] == 'PUT'])
+        
         metrics = [
             ("50", "Signals Generated", "#00b8ff"),
             (f"{np.mean([s['accuracy'] for s in signals]):.1f}%", "Avg Accuracy", "#00ff88"),
             (str(len([s for s in signals if s['accuracy'] > 85])), "PDF Quality", "#8b5cf6"),
-            (str(len(set([s['pair'] for s in signals]))), "Pairs", "#f59e0b")
+            (str(call_count), "CALL Signals", "#00ff88"),
+            (str(put_count), "PUT Signals", "#ff0066")
         ]
         
         for i, (value, label, color) in enumerate(metrics):
