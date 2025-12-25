@@ -213,6 +213,29 @@ class TechnicalStrategyEngine:
         if ema_cross.iloc[-1] and rsi_cross.iloc[-1]:
             return ('TIER2_EMA_RSI', df['close'].iloc[-1], 0.70)
         return None
+    
+    # ============================================
+    # FIX: Added missing combine_all method
+    # ============================================
+    def combine_all(self, pair, df):
+        """Combine all technical strategies and return the best signal"""
+        signals = []
+        
+        # Try each strategy
+        vwap_signal = self.vwap_macd(df)
+        if vwap_signal:
+            signals.append(vwap_signal)
+        
+        ema_signal = self.ema_rsi(df)
+        if ema_signal:
+            signals.append(ema_signal)
+        
+        # Return the signal with highest confidence, or None
+        if signals:
+            best_signal = max(signals, key=lambda x: x[2])
+            self.strategies_used.append(best_signal[0])
+            return best_signal
+        return None
 
 class UnifiedStrategyEngine:
     def __init__(self):
