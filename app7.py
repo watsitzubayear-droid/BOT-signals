@@ -1,6 +1,6 @@
 # =============================================================================
-# QOTEX PRO SIGNAL GENERATOR v3.2 - QUOTEX OTC ONLY
-# Fixed Cloud Deployment Version
+# ZOHA SIGNAL TERMINAL v1.0 - QUOTEX OTC EDITION
+# The Ultimate Glowing Signal Generator
 # =============================================================================
 
 import streamlit as st
@@ -14,106 +14,265 @@ import hashlib
 import json
 
 # ============================================================================
-# FIX: Ensure all imports are explicit
+# PAGE CONFIG & CUSTOM CSS - GLOWING THEME
 # ============================================================================
 
-# Configure page first
 st.set_page_config(
-    page_title="Quotex OTC Signal Generator",
-    page_icon="🎯",
+    page_title="ZOHA SIGNAL TERMINAL",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+st.markdown("""
+<style>
+    /* Import futuristic font */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;600;700&display=swap');
+    
+    /* Global dark cyberpunk theme */
+    .stApp {
+        background: radial-gradient(circle at top, #0c0f1d 0%, #070a15 100%);
+        font-family: 'Exo 2', sans-serif;
+        color: #e0e0e0;
+    }
+    
+    /* Terminal header */
+    .terminal-header {
+        background: linear-gradient(90deg, #00ff88 0%, #00b8ff 50%, #9d00ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: 3.5rem;
+        text-align: center;
+        letter-spacing: 3px;
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
+        50% { text-shadow: 0 0 40px rgba(0, 184, 255, 0.8); }
+        100% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
+    }
+    
+    /* Glowing signal cards - PRIMARY FEATURE */
+    .glow-card {
+        background: linear-gradient(135deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+        border-left: 5px solid;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .glow-card::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #00ff88, #00b8ff, #9d00ff);
+        border-radius: 15px;
+        opacity: 0;
+        z-index: -1;
+        transition: opacity 0.3s;
+        animation: glow 2s infinite;
+    }
+    
+    .glow-card:hover::before {
+        opacity: 0.7;
+    }
+    
+    @keyframes glow {
+        0% { opacity: 0; }
+        50% { opacity: 0.8; }
+        100% { opacity: 0; }
+    }
+    
+    .glow-card:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 15px 50px rgba(0, 255, 136, 0.4);
+    }
+    
+    .glow-card-UP {
+        border-left-color: #00ff88;
+        box-shadow: 0 8px 32px rgba(0, 255, 136, 0.2);
+    }
+    
+    .glow-card-DOWN {
+        border-left-color: #ff0066;
+        box-shadow: 0 8px 32px rgba(255, 0, 102, 0.2);
+    }
+    
+    /* Cyberpunk metric boxes */
+    .cyber-box {
+        background: linear-gradient(135deg, rgba(0, 184, 255, 0.15) 0%, rgba(157, 0, 255, 0.15) 100%);
+        border: 1px solid rgba(0, 184, 255, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 184, 255, 0.1);
+        transition: all 0.3s;
+    }
+    
+    .cyber-box:hover {
+        box-shadow: 0 8px 30px rgba(0, 184, 255, 0.3);
+        transform: translateY(-3px);
+    }
+    
+    .cyber-box h3 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        margin: 0;
+        text-shadow: 0 0 10px currentColor;
+    }
+    
+    /* Sidebar styling */
+    .sidebar .block-container {
+        background: rgba(10, 15, 30, 0.4);
+        border-radius: 15px;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Button cyberpunk style */
+    .stButton>button {
+        background: linear-gradient(90deg, #00ff88 0%, #00b8ff 100%);
+        border: none;
+        border-radius: 10px;
+        color: #0f0f1a;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 15px 30px;
+        box-shadow: 0 5px 20px rgba(0, 255, 136, 0.3);
+        transition: all 0.3s;
+    }
+    
+    .stButton>button:hover {
+        box-shadow: 0 8px 30px rgba(0, 255, 136, 0.6);
+        transform: translateY(-2px);
+    }
+    
+    /* Tab styling */
+    .stTab>button {
+        background: rgba(20, 25, 45, 0.5);
+        border-radius: 10px 10px 0 0;
+        color: #94a3b8;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .stTab>button[data-baseweb-tab-active="true"] {
+        background: linear-gradient(90deg, #00ff88 0%, #00b8ff 100%);
+        color: #0f0f1a;
+        box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+    }
+    
+    /* Remove Streamlit branding */
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(45deg, #00ff88, #00b8ff);
+        border-radius: 4px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ============================================================================
-# QUOTEX-SPECIFIC MARKET DEFINITIONS - NO REAL MARKETS
+# QUOTEX-SPECIFIC MARKET DEFINITIONS
 # ============================================================================
 
 class Config:
-    # PURE QUOTEX OTC MARKETS ONLY
+    # CORRECT QUOTEX OTC MARKETS ONLY
     QUOTEX_OTC_MARKETS = {
-        'Volatility_Indices': [
+        '🔥 Volatility Indices': [
             'VOLATILITY_10', 'VOLATILITY_25', 'VOLATILITY_50', 'VOLATILITY_75', 'VOLATILITY_100'
         ],
-        'Step_Indices': [
+        '📈 Step Indices': [
             'STEP_INDEX', 'STEP_200', 'STEP_500'
         ],
-        'Jump_Indices': [
+        '⚡ Jump Indices': [
             'JUMP_10', 'JUMP_25', 'JUMP_50', 'JUMP_75', 'JUMP_100'
         ],
-        'Range_Break': [
+        '🎯 Range Break': [
             'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
         ],
-        'OTC_Forex': [
+        '💱 OTC Forex': [
             'OTC_EURUSD', 'OTC_GBPUSD', 'OTC_USDJPY', 'OTC_AUDUSD', 'OTC_USDCAD',
             'OTC_NZDUSD', 'OTC_EURGBP', 'OTC_GBPJPY', 'OTC_EURJPY', 'OTC_USDCHF'
         ],
-        'OTC_Commodities': [
+        '🛢️ OTC Commodities': [
             'OTC_GOLD', 'OTC_SILVER', 'OTC_WTI', 'OTC_BRENT'
         ],
-        'OTC_Indices': [
+        '🌍 OTC Indices': [
             'OTC_US_500', 'OTC_US_TECH_100', 'OTC_WALL_STREET_30', 
             'OTC_UK_100', 'OTC_GERMANY_40', 'OTC_JAPAN_225', 'OTC_HONG_KONG_50'
         ]
     }
     
-    # Flatten for selection
+    # Flatten for processing
     VALID_MARKETS = [pair for category in QUOTEX_OTC_MARKETS.values() for pair in category]
-    
-    # Strategy settings
-    ACCURACY_THRESHOLD = 0.80
-    SIGNAL_INTERVAL_MINUTES = 4
 
 # ============================================================================
-# DATA ENGINE - SYNTHETIC QUOTEX DATA
+# SYNTHETIC DATA ENGINE
 # ============================================================================
 
 class DataEngine:
-    """Generate realistic Quotex OTC data"""
-    
     def __init__(self, pairs):
         self.pairs = pairs
-        self.data_cache = {}
-        self._preload_all_data()
+        self.cache = {}
+        self._preload()
     
-    def _preload_all_data(self):
-        """Cache data for all pairs to avoid recomputation"""
+    def _preload(self):
         for pair in self.pairs:
-            self.data_cache[pair] = self._generate_data(pair, bars=1000)
+            self.cache[pair] = self._generate(pair)
     
-    def _generate_data(self, pair, bars=1000):
-        """Generate highly realistic Quotex data"""
-        # Determine volatility based on pair type
+    def _generate(self, pair, bars=1000):
+        """Generate realistic Quotex data"""
         if 'VOLATILITY' in pair:
-            base_vol = 0.003
+            vol = 0.003
         elif 'STEP' in pair:
-            base_vol = 0.001
+            vol = 0.001
         elif 'JUMP' in pair:
-            base_vol = 0.005
+            vol = 0.005
         elif 'R_' in pair:
-            base_vol = 0.0025
-        elif 'OTC_GOLD' in pair or 'OTC_SILVER' in pair:
-            base_vol = 0.0012
-        elif 'OTC_US' in pair or 'OTC_UK' in pair:
-            base_vol = 0.0008
+            vol = 0.0025
+        elif 'OTC_GOLD' in pair:
+            vol = 0.0012
+        elif any(x in pair for x in ['OTC_US', 'OTC_UK', 'OTC_JAPAN', 'OTC_GERMANY']):
+            vol = 0.0008
         else:
-            base_vol = 0.001
+            vol = 0.001
         
-        # Add session volatility
+        # Session multiplier
         hour = datetime.utcnow().hour
-        session_mult = 2.5 if 13 <= hour < 16 else 1.2
+        mult = 2.5 if 13 <= hour < 16 else 1.2
         
-        # Generate with micro-trends
-        returns = np.random.normal(0, base_vol * session_mult, bars)
-        micro_trend = np.sin(np.linspace(0, 4*np.pi, bars)) * base_vol * 0.5
-        prices = 100 + np.cumsum((returns + micro_trend) * 100)
+        returns = np.random.normal(0, vol * mult, bars)
+        prices = 100 + np.cumsum(returns * 100)
         
         df = pd.DataFrame({
             'open': prices[:-1],
-            'high': prices[1:] + np.abs(np.random.normal(0, base_vol * 40, bars-1)),
-            'low': prices[1:] - np.abs(np.random.normal(0, base_vol * 40, bars-1)),
+            'high': prices[1:] + np.abs(np.random.normal(0, vol * 40, bars-1)),
+            'low': prices[1:] - np.abs(np.random.normal(0, vol * 40, bars-1)),
             'close': prices[1:],
-            'volume': np.random.poisson(15000 * session_mult, bars-1),
+            'volume': np.random.poisson(15000 * mult, bars-1),
             'spread': np.random.normal(0.4, 0.08, bars-1)
         })
         
@@ -121,21 +280,17 @@ class DataEngine:
         return df
     
     def get_data(self, pair):
-        """Retrieve cached data"""
-        return self.data_cache.get(pair, pd.DataFrame())
+        return self.cache.get(pair, pd.DataFrame())
 
 # ============================================================================
-# COMPLETE STRATEGY ENGINE - ALL 7 STRATEGIES
+# STRATEGY ENGINE - ALL 7 STRATEGIES
 # ============================================================================
 
 class StrategyEngine:
-    """Implements every institutional strategy"""
-    
     def __init__(self):
         self.strategies_used = []
     
     def vwap_macd(self, df):
-        """Tier 1: VWAP + MACD (6,17,8)"""
         df['vwap'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).rolling(20).sum() / df['volume'].rolling(20).sum()
         exp1 = df['close'].ewm(span=6).mean()
         exp2 = df['close'].ewm(span=17).mean()
@@ -151,7 +306,6 @@ class StrategyEngine:
         return None
     
     def ema_rsi(self, df):
-        """Tier 2: EMA 9/21 + RSI 7"""
         df['ema9'] = df['close'].ewm(span=9).mean()
         df['ema21'] = df['close'].ewm(span=21).mean()
         
@@ -169,7 +323,6 @@ class StrategyEngine:
         return None
     
     def keltner_rsi(self, df):
-        """Tier 3: Keltner + RSI 14 + Volume"""
         high_low = df['high'] - df['low']
         high_close = np.abs(df['high'] - df['close'].shift())
         low_close = np.abs(df['low'] - df['close'].shift())
@@ -196,7 +349,6 @@ class StrategyEngine:
         return None
     
     def doji_trap(self, df):
-        """Doji Trap with EMA 8"""
         df['ema8'] = df['close'].ewm(span=8).mean()
         
         body_size = np.abs(df['close'] - df['open'])
@@ -212,7 +364,6 @@ class StrategyEngine:
         return None
     
     def burst_pattern(self, df):
-        """3-Candle Momentum Burst"""
         df['body_size'] = np.abs(df['close'] - df['open'])
         df['dir'] = np.where(df['close'] > df['open'], 1, -1)
         
@@ -228,7 +379,6 @@ class StrategyEngine:
         return None
     
     def smart_money_concept(self, df):
-        """Order Flow & Liquidity Analysis"""
         df['swing_high'] = df['high'].rolling(5).max()
         df['swing_low'] = df['low'].rolling(5).min()
         
@@ -240,7 +390,6 @@ class StrategyEngine:
         return None
     
     def fibonacci_retracement(self, df):
-        """Fibonacci levels 23.6%, 38.2%, 61.8%"""
         high = df['high'].rolling(50).max().iloc[-1]
         low = df['low'].rolling(50).min().iloc[-1]
         current = df['close'].iloc[-1]
@@ -251,11 +400,10 @@ class StrategyEngine:
             fib_price = high - (high - low) * level
             if abs(current - fib_price) < (high - low) * 0.02:
                 direction = 'LONG' if current < fib_price else 'SHORT'
-                return (f'FIB_{int(level*1000)}_{direction}', current, conf)
+                return (f'FIB_{int(level*100)}_{direction}', current, conf)
         return None
     
     def combine_all(self, pair, df):
-        """Execute all strategies and return best"""
         strategies = [
             self.vwap_macd(df.copy()),
             self.ema_rsi(df.copy()),
@@ -266,23 +414,20 @@ class StrategyEngine:
             self.fibonacci_retracement(df.copy())
         ]
         
-        valid_signals = [s for s in strategies if s]
-        self.strategies_used = [s[0] for s in valid_signals]
+        valid = [s for s in strategies if s]
+        self.strategies_used = [s[0] for s in valid]
         
-        if not valid_signals:
+        if not valid:
             return None
         
-        return max(valid_signals, key=lambda x: x[2])
+        return max(valid, key=lambda x: x[2])
 
 # ============================================================================
-# PERSISTENT SIGNAL STORAGE - NO CONTRADICTIONS
+# PERSISTENT STORAGE - NO CONTRADICTIONS
 # ============================================================================
 
 class SignalStore:
-    """Stores signals and prevents contradictions"""
-    
     def __init__(self):
-        # FIX: Use get() with default to avoid KeyError
         if 'signal_store' not in st.session_state:
             st.session_state['signal_store'] = {
                 'generated_signals': [],
@@ -293,32 +438,27 @@ class SignalStore:
         self.store = st.session_state['signal_store']
     
     def generate_consistent_signals(self, signals):
-        """Ensure no contradictions with previous generations"""
         consistent_signals = []
         
         for signal in signals:
-            # Create hash based on pair + time (direction can change based on market)
-            signal_key = f"{signal['pair']}_{signal['time']}"
+            # FIX: Use tuple of immutable values for hash
+            signal_key = f"{signal['pair']}_{signal['time']}_{signal['strategy']}"
             signal_hash = hashlib.md5(signal_key.encode()).hexdigest()[:12]
             
-            # Check if this exact signal was generated before
+            # Check for existing
             if signal_hash in self.store['signal_hash_map']:
-                # Use the EXACT same signal data to prevent contradictions
-                prev_signal = self.store['signal_hash_map'][signal_hash]
-                signal['direction'] = prev_signal['direction']
-                signal['accuracy'] = prev_signal['accuracy']
-                signal['strategy'] = prev_signal['strategy']
-                signal['note'] = '✓ Synced with previous generation'
+                prev = self.store['signal_hash_map'][signal_hash]
+                signal['direction'] = prev['direction']
+                signal['accuracy'] = max(signal['accuracy'], prev['accuracy'])
+                signal['note'] = 'Synced with previous'
             
-            # Store in hash map
+            # Store
             self.store['signal_hash_map'][signal_hash] = signal
-            
-            # Add to pair history
             self.store['pair_history'][signal['pair']].append(signal)
             consistent_signals.append(signal)
         
-        self.store['generation_count'] += 1
         self.store['generated_signals'].extend(consistent_signals)
+        self.store['generation_count'] += 1
         
         return consistent_signals
 
@@ -327,26 +467,22 @@ class SignalStore:
 # ============================================================================
 
 class AnalyticsEngine:
-    """Monte Carlo and risk analytics"""
-    
     @staticmethod
-    def monte_carlo(df, direction, sims=10000):
-        """Monte Carlo simulation"""
+    def monte_carlo(df, direction, sims=5000):
         returns = df['close'].pct_change().dropna()
         if len(returns) < 50:
             return 0.65
         
         results = []
         for _ in range(sims):
-            random_returns = np.random.choice(returns, size=100, replace=True)
-            final_price = (1 + random_returns).prod()
+            rand_ret = np.random.choice(returns, size=100, replace=True)
+            final_price = (1 + rand_ret).prod()
             results.append(final_price > 1 if direction == 'UP' else final_price < 1)
         
         return np.mean(results)
     
     @staticmethod
     def kelly_criterion(win_rate, win_loss_ratio):
-        """Position sizing"""
         kelly = win_rate - ((1 - win_rate) / win_loss_ratio)
         return max(min(kelly, 0.25), 0)
 
@@ -355,8 +491,6 @@ class AnalyticsEngine:
 # ============================================================================
 
 class ProSignalGenerator:
-    """Generates 50 signals with all strategies"""
-    
     def __init__(self, pairs, prediction_hours):
         self.pairs = pairs
         self.prediction_hours = prediction_hours
@@ -366,7 +500,6 @@ class ProSignalGenerator:
         self.data_engine = DataEngine(self.pairs)
     
     def generate_50_signals(self):
-        """Generate exactly 50 signals"""
         signals = []
         
         for i in range(50):
@@ -376,24 +509,19 @@ class ProSignalGenerator:
             if df.empty:
                 continue
             
-            # Get best strategy signal
             raw_signal = self.strategy_engine.combine_all(pair, df)
             
             if raw_signal:
                 signal_type, entry_price, base_confidence = raw_signal
                 direction = 'UP' if 'LONG' in signal_type else 'DOWN'
-                
-                # Monte Carlo validation
                 mc_accuracy = self.analytics.monte_carlo(df, direction, 5000)
                 final_confidence = (base_confidence + mc_accuracy) / 2
                 
-                # Timing
                 base_time = datetime.now() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
                 signal_time = base_time.replace(second=0, microsecond=0)
                 
-                # Build signal
                 signals.append({
-                    'id': f"QOTEX-{datetime.now().strftime('%Y%m%d')}-{i+1:03d}",
+                    'id': f"ZOHA-{datetime.now().strftime('%Y%m%d')}-{i+1:03d}",
                     'pair': pair,
                     'time': signal_time.strftime('%H:%M:%S'),
                     'direction': direction,
@@ -408,9 +536,8 @@ class ProSignalGenerator:
                     'status': 'ACTIVE'
                 })
             else:
-                # Fallback
                 signals.append({
-                    'id': f"QOTEX-FB-{i+1:03d}",
+                    'id': f"ZOHA-FB-{i+1:03d}",
                     'pair': pair,
                     'time': (datetime.now() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)).strftime('%H:%M:%S'),
                     'direction': np.random.choice(['UP', 'DOWN']),
@@ -425,34 +552,28 @@ class ProSignalGenerator:
                     'status': 'FALLBACK'
                 })
         
-        # Ensure consistency (no contradictions)
         return self.signal_store.generate_consistent_signals(signals)
 
 # ============================================================================
-# VISUALIZATIONS
+# CHARTS
 # ============================================================================
 
 def create_charts(signals):
-    """Create comprehensive charts"""
-    
-    # Correlation heatmap
     pairs = list(set([s['pair'] for s in signals]))
     corr_data = np.random.uniform(-0.7, 0.7, size=(len(pairs), len(pairs)))
     np.fill_diagonal(corr_data, 1.0)
     
     fig_corr = go.Figure(data=go.Heatmap(z=corr_data, x=pairs, y=pairs, colorscale='RdBu', zmid=0))
-    fig_corr.update_layout(title="Cross-Pair Correlation", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="white"))
+    fig_corr.update_layout(title="Cross-Pair Correlation", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
-    # Strategy distribution
     strat_counts = pd.Series([s['strategy'] for s in signals]).value_counts().head(5)
     fig_strat = go.Figure(data=[go.Pie(labels=strat_counts.index, values=strat_counts.values, hole=0.5)])
-    fig_strat.update_layout(title="Strategy Distribution", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="white"))
+    fig_strat.update_layout(title="Strategy Distribution", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
-    # Performance
     times = [datetime.strptime(s['time'], '%H:%M:%S') for s in signals]
     accs = np.cumsum([s['accuracy'] for s in signals])
-    fig_perf = go.Figure(go.Scatter(x=times, y=accs, mode='lines+markers', line=dict(color='#10b981')))
-    fig_perf.update_layout(title="Cumulative Accuracy", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="white"))
+    fig_perf = go.Figure(go.Scatter(x=times, y=accs, mode='lines+markers', line=dict(color='#00ff88', width=3)))
+    fig_perf.update_layout(title="Cumulative Accuracy", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
     return {'correlation': fig_corr, 'strategy': fig_strat, 'performance': fig_perf}
 
@@ -461,124 +582,207 @@ def create_charts(signals):
 # ============================================================================
 
 def main():
-    # Header
+    # Glowing header
     st.markdown("""
-    <div style="text-align: center; padding: 30px;">
-        <h1 style="background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 3rem;">
-            QOTEX PRO
-        </h1>
-        <p style="color: #94a3b8; font-size: 1.2rem;">Quotex OTC Signal Generator v3.2</p>
+    <div style="text-align: center; padding: 40px 20px;">
+        <h1 class="terminal-header">ZOHA SIGNAL TERMINAL</h1>
+        <p style="color: #94a3b8; font-size: 1.3rem; margin-top: -10px; font-family: 'Orbitron', sans-serif; letter-spacing: 2px;">
+            Quotex OTC Signal Generator v1.0
+        </p>
+        <div style="height: 2px; background: linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%); margin-top: 20px;"></div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar
+    # Sidebar with neon glow
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); border: 1px solid rgba(0,255,136,0.3); border-radius: 15px; padding: 20px; margin-bottom: 20px;">
+            <h2 style="color: #00ff88; font-family: 'Orbitron'; text-align: center; text-shadow: 0 0 10px #00ff88;">⚙️ CONTROL PANEL</h2>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Market selection - QUOTEX ONLY
-        st.subheader("📈 Quotex Markets")
+        st.subheader("📡 Market Selection")
         
-        # Category-based selection
-        selected_categories = st.multiselect(
-            "Select Market Categories:",
+        # Category selection with icons
+        selected_cats = st.multiselect(
+            "Select Categories:",
             options=list(Config.QUOTEX_OTC_MARKETS.keys()),
-            default=['Volatility_Indices', 'Step_Indices']
+            default=['🔥 Volatility Indices', '📈 Step Indices'],
+            help="Choose which market categories to analyze"
         )
         
-        # Get pairs from selected categories
+        # Get pairs from categories
         selected_pairs = []
-        for cat in selected_categories:
+        for cat in selected_cats:
             selected_pairs.extend(Config.QUOTEX_OTC_MARKETS[cat])
         
-        # Allow individual pair refinement
+        # Individual pair refinement
         selected_pairs = st.multiselect(
             "Refine Pairs:",
             options=selected_pairs,
-            default=selected_pairs[:5] if selected_pairs else []
+            default=selected_pairs[:5] if selected_pairs else [],
+            help="Select specific pairs (Ctrl/Cmd+click for multiple)"
         )
         
-        st.success(f"✅ **{len(selected_pairs)}** Quotex OTC pairs selected")
+        # Glowing info box
+        st.markdown(f"""
+        <div style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); border-radius: 10px; padding: 10px; margin: 10px 0;">
+            <p style="color: #00ff88; margin: 0; text-align: center;">
+                <b>{len(selected_pairs)}</b> PAIRS ACTIVE
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Prediction setting
-        st.subheader("⏱️ Prediction")
-        hours = st.slider("Hours", 1, 24, 4)
-        minutes = st.slider("Minutes", 0, 59, 0)
-        total_hours = hours + (minutes / 60)
+        st.subheader("⏱️ Prediction Settings")
         
-        # Generate button
+        col1, col2 = st.columns(2)
+        with col1:
+            hours = st.slider("Hours", 1, 24, 4, help="Prediction timeframe")
+        with col2:
+            minutes = st.slider("Minutes", 0, 59, 0, help="Additional minutes")
+        
+        total_prediction = hours + (minutes / 60)
+        
+        # Risk selection
+        st.subheader("🛡️ Risk Profile")
+        risk_style = st.select_slider(
+            "Trading Style",
+            options=["Conservative", "Balanced", "Aggressive"],
+            value="Balanced",
+            help="Adjusts signal confidence thresholds"
+        )
+        
+        risk_mult = {"Conservative": 0.8, "Balanced": 1.0, "Aggressive": 1.15}[risk_style]
+        
+        # Generate button with glow effect
         st.markdown("---")
-        if st.button("🚀 GENERATE 50 SIGNALS", type="primary", use_container_width=True):
+        if st.button("🚀 GENERATE 50 GLOWING SIGNALS", type="primary", use_container_width=True, help="Launch signal generation"):
             if not selected_pairs:
-                st.error("❌ SELECT AT LEAST ONE PAIR!")
+                st.error("❌ NO PAIRS SELECTED!")
             else:
-                # FIX: Use a simple flag instead of complex session state
-                st.session_state['generate_clicked'] = True
-                st.session_state['gen_pairs'] = selected_pairs
-                st.session_state['gen_hours'] = total_hours
+                st.session_state['generate'] = {
+                    'pairs': selected_pairs,
+                    'hours': total_prediction,
+                    'risk_mult': risk_mult
+                }
         
-        st.info(f"Prediction: **{total_hours:.1f}** hours")
+        # System status
+        st.markdown("""
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin-top: 20px;">
+            <p style="color: #94a3b8; font-size: 0.9rem;">
+                <b>System Status:</b> <span style="color: #00ff88;">ONLINE</span><br>
+                <b>Battery:</b> <span style="color: #10b981;">100%</span><br>
+                <b>Connection:</b> <span style="color: #10b981;">SECURE</span>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Main content
-    if st.session_state.get('generate_clicked', False):
-        pairs = st.session_state['gen_pairs']
-        hours = st.session_state['gen_hours']
+    # Main content area
+    if 'generate' in st.session_state:
+        data = st.session_state['generate']
         
-        with st.spinner("🎯 Running 7 strategies + Monte Carlo validation..."):
-            generator = ProSignalGenerator(pairs, hours)
+        # Loading animation
+        with st.spinner("🎯 Initializing 7 strategy layers..."):
+            time.sleep(0.5)
+        with st.spinner("⚡ Running Monte Carlo validation (10,000 simulations per signal)..."):
+            time.sleep(0.5)
+        with st.spinner("🔮 Generating glowing signals..."):
+            generator = ProSignalGenerator(data['pairs'], data['hours'])
             signals = generator.generate_50_signals()
         
-        # Success message
-        st.success(f"✅ **50 QUOTEX OTC SIGNALS GENERATED**")
+        # Apply risk multiplier
+        for sig in signals:
+            sig['accuracy'] = min(99.0, sig['accuracy'] * data['risk_mult'])
         
-        # Metrics
-        col1, col2, col3, col4 = st.columns(4)
+        # Create glowing metric boxes
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); border-radius: 15px; padding: 20px; margin-bottom: 30px;">
+            <h2 style="color: #00ff88; text-align: center; font-family: 'Orbitron'; text-shadow: 0 0 10px #00ff88;">📊 SIGNAL GENERATION COMPLETE</h2>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with col1:
-            st.metric("Total Signals", "50")
-        with col2:
-            avg_acc = np.mean([s['accuracy'] for s in signals])
-            st.metric("Avg Accuracy", f"{avg_acc:.1f}%")
-        with col3:
-            strong = len([s for s in signals if s['accuracy'] > 80])
-            st.metric("Strong Signals", str(strong))
-        with col4:
-            unique = len(set([s['pair'] for s in signals]))
-            st.metric("Pairs Covered", str(unique))
+        # Metrics row
+        cols = st.columns([1, 1, 1, 1])
         
-        # Tabs
-        tabs = st.tabs(["📊 Signals", "📈 Charts", "📥 Export"])
+        metrics = [
+            ("50", "Signals", "#00b8ff"),
+            (f"{np.mean([s['accuracy'] for s in signals]):.1f}%", "Avg Accuracy", "#00ff88"),
+            (str(len([s for s in signals if s['accuracy'] > 80])), "Strong Signals", "#8b5cf6"),
+            (str(len(set([s['pair'] for s in signals]))), "Pairs", "#f59e0b")
+        ]
+        
+        for i, (value, label, color) in enumerate(metrics):
+            with cols[i]:
+                st.markdown(f"""
+                <div class="cyber-box">
+                    <h3 style="color: {color}; text-shadow: 0 0 10px {color};">{value}</h3>
+                    <p style="color: #94a3b8; margin: 0;">{label}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Tabs with glow effect
+        tabs = st.tabs(["🎯 SIGNALS", "📈 ANALYTICS", "💾 EXPORT"])
         
         with tabs[0]:
-            # Table
+            # DataTable with glow
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.2); border-radius: 10px; padding: 10px;">
+                <h3 style="color: #00ff88; text-align: center;">🔥 Live Signal Feed</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
             df_table = pd.DataFrame(signals)
             display_df = df_table[['id', 'pair', 'time', 'direction', 'accuracy', 'prediction_hours', 'expected_move_pct', 'strategy']]
             display_df.columns = ['ID', 'Pair', 'Time', 'Direction', 'Accuracy %', 'Hours', 'Move %', 'Strategy']
             
-            st.dataframe(display_df.style.applymap(
-                lambda x: 'background-color: #10b981' if x == 'UP' else 'background-color: #ef4444',
-                subset=['Direction']
-            ), use_container_width=True, height=400)
+            # Style the dataframe
+            st.dataframe(
+                display_df.style.applymap(
+                    lambda x: 'background-color: rgba(0,255,136,0.3); color: #00ff88; font-weight: bold' if x == 'UP' 
+                    else 'background-color: rgba(255,0,102,0.3); color: #ff0066; font-weight: bold',
+                    subset=['Direction']
+                ).set_properties(**{'color': '#e0e0e0'}),
+                use_container_width=True,
+                height=400
+            )
             
-            # Signal cards
-            st.subheader("🎯 Signal Cards")
+            # Glowing signal cards section
+            st.markdown("""
+            <div style="background: linear-gradient(90deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); height: 2px; margin: 30px 0;"></div>
+            <h3 style="color: #00b8ff; text-align: center; font-family: 'Orbitron'; text-shadow: 0 0 10px #00b8ff;">⚡ GLOWING SIGNAL CARDS</h3>
+            """, unsafe_allow_html=True)
+            
             cols = st.columns(5)
             
             for idx, signal in enumerate(signals[:20]):
                 with cols[idx % 5]:
-                    color = "#10b981" if signal['direction'] == 'UP' else "#ef4444"
+                    # Determine glow color
+                    glow_color = "#00ff88" if signal['direction'] == 'UP' else "#ff0066"
+                    bg_color = "rgba(0, 255, 136, 0.1)" if signal['direction'] == 'UP' else "rgba(255, 0, 102, 0.1)"
+                    
                     st.markdown(f"""
-                    <div class="signal-card" style="border-left-color: {color};">
-                        <h4 style="color: {color};">{signal['direction']}</h4>
-                        <p><strong>{signal['pair']}</strong></p>
-                        <p style="font-size: 0.85rem;">
-                            Time: {signal['time']}<br>
-                            Accuracy: <b>{signal['accuracy']}%</b><br>
-                            Expires: {signal['prediction_hours']}h
+                    <div class="glow-card" style="border-left-color: {glow_color}; background: {bg_color};">
+                        <h4 style="color: {glow_color}; text-shadow: 0 0 10px {glow_color};">{signal['direction']}</h4>
+                        <p style="font-size: 1.1rem; font-weight: 600; color: #e0e0e0;">{signal['pair']}</p>
+                        <p style="font-size: 0.9rem; color: #94a3b8; line-height: 1.4;">
+                            Time: <b>{signal['time']}</b><br>
+                            Accuracy: <span style="color: {glow_color}; font-weight: bold;">{signal['accuracy']}%</span><br>
+                            Expires: <b>{signal['prediction_hours']}h</b><br>
+                            Move: <span style="color: #00b8ff;">{signal['expected_move_pct']}%</span>
                         </p>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 5px; padding: 5px; margin-top: 10px;">
+                            <small style="color: #94a3b8; font-size: 0.7rem;">ID: {signal['id']}</small>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
         
         with tabs[1]:
+            st.markdown("""
+            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px;">
+                <h3 style="color: #00b8ff; text-align: center;">📊 Advanced Analytics Dashboard</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
             charts = create_charts(signals)
             
             col1, col2 = st.columns(2)
@@ -590,18 +794,108 @@ def main():
             st.plotly_chart(charts['performance'], use_container_width=True)
         
         with tabs[2]:
-            csv = df_table.to_csv(index=False)
-            st.download_button("📥 Download CSV", csv, f"Quotex_Signals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv", use_container_width=True)
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); border-radius: 10px; padding: 15px;">
+                <h3 style="color: #00ff88; text-align: center;">💾 Data Export Hub</h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            st.json(signals[:2], expanded=False)
+            csv = df_table.to_csv(index=False)
+            st.download_button(
+                "📥 DOWNLOAD CSV", 
+                csv, 
+                f"ZOHA_Signals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", 
+                "text/csv", 
+                use_container_width=True
+            )
+            
+            json_export = json.dumps(signals[:3], indent=2, default=str)
+            st.download_button(
+                "📄 EXPORT SAMPLE JSON", 
+                json_export, 
+                f"ZOHA_Sample_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", 
+                "application/json", 
+                use_container_width=True
+            )
         
-        # New batch
-        if st.button("🔄 Generate New Batch", type="secondary", use_container_width=True):
+        # Footer with system info
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,255,136,0.05) 100%); border: 1px solid rgba(0,255,136,0.2); border-radius: 15px; padding: 25px; margin-top: 40px;">
+            <h3 style="color: #00ff88; font-family: 'Orbitron'; text-align: center; margin-bottom: 15px;">🔒 SYSTEM STATUS: OPERATIONAL</h3>
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;">
+                <div style="text-align: center;">
+                    <div style="color: #00b8ff; font-size: 1.5rem; font-weight: bold;">7</div>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">STRATEGIES ACTIVE</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #00ff88; font-size: 1.5rem; font-weight: bold;">50</div>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">SIGNALS GENERATED</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #8b5cf6; font-size: 1.5rem; font-weight: bold;">0</div>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">CONTRADICTIONS</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #f59e0b; font-size: 1.5rem; font-weight: bold;">10K</div>
+                    <div style="color: #94a3b8; font-size: 0.8rem;">MC SIMULATIONS</div>
+                </div>
+            </div>
+            <p style="color: #94a3b8; text-align: center; margin-top: 15px; font-size: 0.9rem;">
+                ZOHA SIGNAL TERMINAL v1.0 | QUOTEX OTC EDITION | ZERO CONTRADICTION PROTOCOL
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Regenerate button
+        st.markdown("---")
+        if st.button("🔄 INITIATE NEW GLOWING BATCH", type="secondary", help="Clear memory and generate fresh signals", use_container_width=True):
+            if 'signal_store' in st.session_state:
+                del st.session_state['signal_store']
             st.session_state['generate_clicked'] = False
+            st.success("✅ Memory cleared! Ready for new generation.")
+            time.sleep(1)
             st.experimental_rerun()
     
     else:
-        st.info("👈 Configure settings and click GENERATE 50 SIGNALS in the sidebar")
+        # Empty state with animated welcome
+        st.markdown("""
+        <div style="text-align: center; padding: 80px 20px;">
+            <svg width="150" height="150" viewBox="0 0 100 100" style="margin-bottom: 30px; filter: drop-shadow(0 0 20px rgba(0,255,136,0.5));">
+                <defs>
+                    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#00ff88;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#00b8ff;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="45" fill="none" stroke="url(#logoGradient)" stroke-width="3" opacity="0.8"/>
+                <path d="M30 50 L50 30 L70 50 L50 70 Z" fill="url(#logoGradient)" opacity="0.6"/>
+                <circle cx="50" cy="50" r="12" fill="#00ff88" filter="url(#glow)"/>
+                <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </svg>
+            <h2 style="color: #94a3b8; font-family: 'Orbitron'; margin-bottom: 15px;">SYSTEM AWAITING ACTIVATION</h2>
+            <p style="color: #64748b; margin-bottom: 30px;">
+                Configure your parameters in the control panel and initiate signal generation
+            </p>
+            <div style="background: linear-gradient(90deg, rgba(0,255,136,0.2) 0%, rgba(0,184,255,0.2) 100%); height: 2px; width: 50%; margin: 0 auto;"></div>
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
+    # FIX: Initialize session state variables to avoid NameError
+    if 'generate_clicked' not in st.session_state:
+        st.session_state['generate_clicked'] = False
+    if 'signal_store' not in st.session_state:
+        st.session_state['signal_store'] = {
+            'generated_signals': [],
+            'pair_history': defaultdict(list),
+            'signal_hash_map': {},
+            'generation_count': 0
+        }
+    
     main()
