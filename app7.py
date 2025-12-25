@@ -1,5 +1,5 @@
 # =============================================================================
-# ZOHA SIGNAL TERMINAL v2.1 - QUANTUM MTF ENGINE
+# ZOHA SIGNAL TERMINAL v2.2 - ALL OTC MARKETS EDITION
 # Complete Python Code - Save as app.py
 # =============================================================================
 
@@ -9,10 +9,8 @@ import numpy as np
 from datetime import datetime, timedelta
 from collections import defaultdict
 import hashlib
-import json
 import pytz
 import plotly.graph_objects as go
-import plotly.express as px
 
 # ============================================================================
 # SESSION STATE
@@ -21,7 +19,6 @@ def init_session_state():
     if 'zoha_initialized' not in st.session_state:
         st.session_state['zoha_initialized'] = True
         st.session_state['generate_clicked'] = False
-        st.session_state['selected_pairs'] = []
         st.session_state['prediction_hours'] = 4.0
         st.session_state['risk_mult'] = 1.0
         st.session_state['signal_store'] = {
@@ -66,21 +63,27 @@ st.markdown("""
         animation: pulse 2s infinite;
     }
     
-    .glow-card {
+    .signal-card {
         background: linear-gradient(135deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
-        border-radius: 15px;
-        padding: 20px;
-        margin: 10px 0;
-        border-left: 5px solid;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 8px 0;
+        border-left: 6px solid;
         backdrop-filter: blur(15px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         transition: all 0.3s ease;
     }
     
-    .glow-card:hover {
-        transform: translateY(-5px) scale(1.02);
-        box-shadow: 0 15px 50px rgba(0, 255, 136, 0.4);
+    .signal-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(0, 255, 136, 0.3);
     }
+    
+    .call-border { border-left-color: #00ff88; }
+    .put-border { border-left-color: #ff0066; }
+    
+    .call-text { color: #00ff88; font-size: 1.8rem; font-weight: bold; text-shadow: 0 0 10px #00ff88; }
+    .put-text { color: #ff0066; font-size: 1.8rem; font-weight: bold; text-shadow: 0 0 10px #ff0066; }
     
     .cyber-box {
         background: linear-gradient(135deg, rgba(0, 184, 255, 0.15) 0%, rgba(157, 0, 255, 0.15) 100%);
@@ -113,52 +116,59 @@ st.markdown("""
         font-family: 'Orbitron';
         color: #FFD700;
     }
+    
+    .pair-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 5px 0;
+        color: #e0e0e0;
+    }
+    
+    .signal-meta {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin: 3px 0;
+    }
+    
+    .strategy-name {
+        font-size: 0.85rem;
+        color: #00b8ff;
+        margin: 8px 0;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# CONFIGURATION - QUOTEX OTC MARKETS ONLY
+# ALL 60+ OTC MARKETS
 # ============================================================================
-class Config:
-    QUOTEX_OTC_MARKETS = {
-        '🔥 Volatility Indices': [
-            'VOLATILITY_10', 'VOLATILITY_25', 'VOLATILITY_50', 'VOLATILITY_75', 'VOLATILITY_100'
-        ],
-        '📈 Step Indices': [
-            'STEP_INDEX', 'STEP_200', 'STEP_500'
-        ],
-        '⚡ Jump Indices': [
-            'JUMP_10', 'JUMP_25', 'JUMP_50', 'JUMP_75', 'JUMP_100'
-        ],
-        '🎯 Range Break': [
-            'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
-        ],
-        '💱 OTC Forex': [
-            'OTC_EURUSD', 'OTC_GBPUSD', 'OTC_USDJPY', 'OTC_AUDUSD', 'OTC_USDCAD',
-            'OTC_NZDUSD', 'OTC_EURGBP', 'OTC_GBPJPY', 'OTC_EURJPY', 'OTC_USDCHF',
-            'OTC_AUDJPY', 'OTC_CADJPY', 'OTC_CHFJPY', 'OTC_EURCAD', 'OTC_EURAUD',
-            'OTC_USDSGD', 'OTC_USDZAR', 'OTC_USDMXN'
-        ],
-        '🛢️ OTC Commodities': [
-            'OTC_GOLD', 'OTC_SILVER', 'OTC_WTI', 'OTC_BRENT', 'OTC_NATURALGAS'
-        ],
-        '🌍 OTC Indices': [
-            'OTC_US_500', 'OTC_US_TECH_100', 'OTC_WALL_STREET_30', 'OTC_US_2000',
-            'OTC_UK_100', 'OTC_GERMANY_40', 'OTC_FRANCE_40', 'OTC_SWISS_20',
-            'OTC_JAPAN_225', 'OTC_HONG_KONG_50', 'OTC_CHINA_A50', 'OTC_SINGAPORE_30',
-            'OTC_INDIA_50', 'OTC_AUSTRALIA_200'
-        ],
-        '💰 OTC Crypto': [
-            'OTC_BTCUSD', 'OTC_ETHUSD', 'OTC_LTCUSD', 'OTC_XRPUSD', 'OTC_BCHUSD'
-        ]
-    }
-    
-    SIGNAL_INTERVAL_MINUTES = 4
-    BDT_TZ = pytz.timezone('Asia/Dhaka')
-    VALID_MARKETS = [pair for category in QUOTEX_OTC_MARKETS.values() for pair in category]
+ALL_OTC_MARKETS = [
+    # Volatility Indices
+    'VOLATILITY_10', 'VOLATILITY_25', 'VOLATILITY_50', 'VOLATILITY_75', 'VOLATILITY_100',
+    # Step Indices
+    'STEP_INDEX', 'STEP_200', 'STEP_500',
+    # Jump Indices
+    'JUMP_10', 'JUMP_25', 'JUMP_50', 'JUMP_75', 'JUMP_100',
+    # Range Break
+    'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+    # OTC Forex
+    'OTC_EURUSD', 'OTC_GBPUSD', 'OTC_USDJPY', 'OTC_AUDUSD', 'OTC_USDCAD',
+    'OTC_NZDUSD', 'OTC_EURGBP', 'OTC_GBPJPY', 'OTC_EURJPY', 'OTC_USDCHF',
+    'OTC_AUDJPY', 'OTC_CADJPY', 'OTC_CHFJPY', 'OTC_EURCAD', 'OTC_EURAUD',
+    'OTC_USDSGD', 'OTC_USDZAR', 'OTC_USDMXN',
+    # OTC Commodities
+    'OTC_GOLD', 'OTC_SILVER', 'OTC_WTI', 'OTC_BRENT', 'OTC_NATURALGAS',
+    # OTC Indices
+    'OTC_US_500', 'OTC_US_TECH_100', 'OTC_WALL_STREET_30', 'OTC_US_2000',
+    'OTC_UK_100', 'OTC_GERMANY_40', 'OTC_FRANCE_40', 'OTC_SWISS_20',
+    'OTC_JAPAN_225', 'OTC_HONG_KONG_50', 'OTC_CHINA_A50', 'OTC_SINGAPORE_30',
+    'OTC_INDIA_50', 'OTC_AUSTRALIA_200',
+    # OTC Crypto
+    'OTC_BTCUSD', 'OTC_ETHUSD', 'OTC_LTCUSD', 'OTC_XRPUSD', 'OTC_BCHUSD'
+]
 
 def get_bdt_time():
-    return datetime.now(Config.BDT_TZ).replace(second=0, microsecond=0)
+    return datetime.now(pytz.timezone('Asia/Dhaka')).replace(second=0, microsecond=0)
 
 # ============================================================================
 # QUANTUM ENGINE - PROFESSIONAL MTF LOGIC
@@ -225,7 +235,7 @@ class SignalStore:
         return signals
 
 # ============================================================================
-# PRO SIGNAL GENERATOR - QUANTUM EDITION
+# PRO SIGNAL GENERATOR
 # ============================================================================
 class ProSignalGenerator:
     def __init__(self, pairs, prediction_hours, risk_mult):
@@ -247,12 +257,12 @@ class ProSignalGenerator:
             base_accuracy = prediction_data['accuracy']
             final_accuracy = min(0.99, base_accuracy * self.risk_mult)
             
-            base_time = get_bdt_time() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
+            base_time = get_bdt_time() + timedelta(minutes=i * 4)  # 4 min intervals
             
             signals.append({
                 'id': f"ZOHA-{datetime.now().strftime('%Y%m%d')}-{i+1:03d}",
                 'pair': pair,
-                'time_bdt': base_time.strftime('%H:%M:%S'),
+                'time_bdt': base_time.strftime('%H:%M'),
                 'direction': prediction_data['direction'],
                 'entry_price': round(np.random.uniform(95, 105), 5),
                 'accuracy': round(final_accuracy * 100, 1),
@@ -267,28 +277,6 @@ class ProSignalGenerator:
             })
         
         return self.signal_store.generate_consistent_signals(signals)
-
-# ============================================================================
-# VISUALIZATIONS
-# ============================================================================
-def create_charts(signals):
-    pairs = list(set([s['pair'] for s in signals]))
-    corr_data = np.random.uniform(-0.7, 0.7, size=(len(pairs), len(pairs)))
-    np.fill_diagonal(corr_data, 1.0)
-    
-    fig_corr = go.Figure(data=go.Heatmap(z=corr_data, x=pairs, y=pairs, colorscale='RdBu', zmid=0))
-    fig_corr.update_layout(title="Cross-Pair Correlation (BDT)", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
-    
-    strat_counts = pd.Series([s['strategy'] for s in signals]).value_counts().head(5)
-    fig_strat = go.Figure(data=[go.Pie(labels=strat_counts.index, values=strat_counts.values, hole=0.5)])
-    fig_strat.update_layout(title="Strategy Distribution", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
-    
-    times = [datetime.strptime(s['time_bdt'], '%H:%M:%S') for s in signals]
-    accs = np.cumsum([s['accuracy'] for s in signals])
-    fig_perf = go.Figure(go.Scatter(x=times, y=accs, mode='lines+markers', line=dict(color='#00ff88', width=3)))
-    fig_perf.update_layout(title="Cumulative Accuracy (BDT)", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
-    
-    return {'correlation': fig_corr, 'strategy': fig_strat, 'performance': fig_perf}
 
 # ============================================================================
 # RENDERING FUNCTIONS
@@ -306,41 +294,6 @@ def render_sidebar():
         st.markdown(f"""
         <div class="bdt-indicator">
             🕐 BDT TIME: {get_bdt_time().strftime('%H:%M:%S')}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        st.subheader("📡 Market Selection")
-        
-        # Category selection
-        selected_cats = st.multiselect(
-            "Select Categories:",
-            options=list(Config.QUOTEX_OTC_MARKETS.keys()),
-            default=['🔥 Volatility Indices'],
-            help="Choose market categories to analyze"
-        )
-        
-        # Get pairs from categories
-        selected_pairs = []
-        if selected_cats:
-            for cat in selected_cats:
-                selected_pairs.extend(Config.QUOTEX_OTC_MARKETS[cat])
-        
-        # Individual pair refinement
-        st.markdown("**Refine Pairs:**")
-        selected_pairs = st.multiselect(
-            "Choose specific pairs:",
-            options=selected_pairs,
-            default=selected_pairs[:3] if selected_pairs else []
-        )
-        
-        # Show pair count
-        st.markdown(f"""
-        <div style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); border-radius: 10px; padding: 10px;">
-            <p style="color: #00ff88; margin: 0; text-align: center;">
-                <b>{len(selected_pairs)}</b> PAIRS ACTIVE
-            </p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -369,19 +322,13 @@ def render_sidebar():
         # Generate button
         st.markdown("---")
         if st.button("🚀 GENERATE 50 GLOWING SIGNALS", type="primary", use_container_width=True):
-            if not selected_pairs:
-                st.error("❌ NO PAIRS SELECTED!")
-                st.session_state['generate_clicked'] = False
-            else:
-                st.session_state['generate_clicked'] = True
-                st.session_state['selected_pairs'] = selected_pairs
-                st.session_state['prediction_hours'] = total_prediction
-                st.session_state['risk_mult'] = risk_mult
+            st.session_state['generate_clicked'] = True
+            st.session_state['prediction_hours'] = total_prediction
+            st.session_state['risk_mult'] = risk_mult
         
         # Reset button
         if st.button("🔄 RESET CONFIG", type="secondary", use_container_width=True):
             st.session_state['generate_clicked'] = False
-            st.session_state['selected_pairs'] = []
             st.session_state['signal_store'] = {
                 'generated_signals': [],
                 'pair_history': defaultdict(list),
@@ -396,23 +343,18 @@ def render_main_content():
     <div style="text-align: center; padding: 40px 20px;">
         <h1 class="terminal-header">ZOHA SIGNAL TERMINAL</h1>
         <p style="color: #94a3b8; font-size: 1.3rem; font-family: 'Orbitron'; letter-spacing: 2px;">
-            Quantum MTF Engine | BDT Timezone | PDF + 5M Confluence
+            Quantum MTF Engine | All 60+ OTC Markets | BDT Timezone
         </p>
     </div>
     """, unsafe_allow_html=True)
     
     if st.session_state.get('generate_clicked', False):
-        pairs = st.session_state.get('selected_pairs', [])
         hours = st.session_state.get('prediction_hours', 4.0)
         risk_mult = st.session_state.get('risk_mult', 1.0)
         
-        if not pairs:
-            st.error("❌ No pairs selected!")
-            return
-        
         # Generate signals
-        with st.spinner("🎯 Running Quantum MTF Engine (5M Bias + PDF Confluence)..."):
-            generator = ProSignalGenerator(pairs, hours, risk_mult)
+        with st.spinner("🎯 Running Quantum MTF Engine on All 60+ OTC Markets..."):
+            generator = ProSignalGenerator(ALL_OTC_MARKETS, hours, risk_mult)
             signals = generator.generate_50_signals()
         
         # Metrics
@@ -425,7 +367,7 @@ def render_main_content():
             (f"{np.mean([s['accuracy'] for s in signals]):.1f}%", "Avg Accuracy", "#00ff88"),
             (str(call_count), "CALL Signals", "#00ff88"),
             (str(put_count), "PUT Signals", "#ff0066"),
-            (str(len(set([s['pair'] for s in signals]))), "Pairs", "#f59e0b")
+            (str(len(set([s['pair'] for s in signals]))), "Pairs Used", "#f59e0b")
         ]
         
         for i, (value, label, color) in enumerate(metrics):
@@ -438,42 +380,45 @@ def render_main_content():
                 """, unsafe_allow_html=True)
         
         # Tabs
-        tabs = st.tabs(["🎯 GLOWING SIGNALS", "📊 STRATEGY BREAKDOWN", "💾 EXPORT"])
+        tabs = st.tabs(["🎯 LIVE SIGNALS", "📊 ANALYTICS", "💾 EXPORT"])
         
         with tabs[0]:
+            # Display signals in the requested format
+            cols = st.columns(3)
+            for idx, signal in enumerate(signals):
+                with cols[idx % 3]:
+                    border_class = "call-border" if signal['direction'] == 'CALL' else "put-border"
+                    text_class = "call-text" if signal['direction'] == 'CALL' else "put-text"
+                    
+                    st.markdown(f"""
+                    <div class="signal-card {border_class}">
+                        <div class="pair-name">{signal['pair']}</div>
+                        <div class="signal-meta">{signal['time_bdt']} BDT</div>
+                        <div class="{text_class}">{signal['direction']}</div>
+                        <div class="strategy-name">{signal['strategy']}</div>
+                        <div class="signal-meta">ACC: {signal['accuracy']}% | 5M: {signal['m5_trend']}</div>
+                        <div class="signal-meta">EV: {signal['expected_move_pct']}%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Table view below cards
+            st.markdown("---")
             df_table = pd.DataFrame(signals)
-            display_df = df_table[['id', 'pair', 'time_bdt', 'direction', 'accuracy', 'prediction_hours', 'expected_move_pct', 'm5_trend', 'strategy']]
-            display_df.columns = ['ID', 'Pair', 'BDT Time', 'Direction', 'Accuracy %', 'Hours', 'Move %', '5M Trend', 'Setup']
+            display_df = df_table[['pair', 'time_bdt', 'direction', 'accuracy', 'strategy', 'm5_trend', 'expected_move_pct']]
+            display_df.columns = ['Pair', 'Time', 'Dir', 'ACC%', 'Strategy', '5M Trend', 'EV%']
             
             st.dataframe(
                 display_df.style.applymap(
                     lambda x: 'background-color: rgba(0,255,136,0.3); color: #00ff88; font-weight: bold' if x == 'CALL' 
                     else 'background-color: rgba(255,0,102,0.3); color: #ff0066; font-weight: bold',
-                    subset=['Direction']
+                    subset=['Dir']
                 ),
                 use_container_width=True,
-                height=400
+                height=300
             )
-            
-            # Glow cards
-            cols = st.columns(5)
-            for idx, signal in enumerate(signals[:20]):
-                with cols[idx % 5]:
-                    glow_color = "#00ff88" if signal['direction'] == 'CALL' else "#ff0066"
-                    st.markdown(f"""
-                    <div class="glow-card" style="border-left-color: {glow_color};">
-                        <h4 style="color: {glow_color}; text-shadow: 0 0 10px {glow_color};">{signal['direction']}</h4>
-                        <p style="font-size: 1.1rem; font-weight: 600;">{signal['pair']}</p>
-                        <p style="font-size: 0.9rem; color: #94a3b8;">
-                            BDT: {signal['time_bdt']}<br>
-                            Accuracy: <b>{signal['accuracy']}%</b><br>
-                            5M: {signal['m5_trend']}<br>
-                            Expires: {signal['prediction_hours']}h
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
         
         with tabs[1]:
+            # Analytics charts
             charts = create_charts(signals)
             col1, col2 = st.columns(2)
             with col1:
@@ -486,7 +431,7 @@ def render_main_content():
             st.download_button("📥 DOWNLOAD CSV", csv, f"ZOHA_BDT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv", use_container_width=True)
     
     else:
-        st.info("📡 SYSTEM READY: Configure in sidebar and click GENERATE")
+        st.info("📡 SYSTEM READY: Configure settings and click GENERATE to scan all 60+ OTC markets")
 
 # ============================================================================
 # EXECUTE RENDERING
