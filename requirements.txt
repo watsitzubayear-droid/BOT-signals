@@ -1,26 +1,6 @@
-# =============================================================================
-# ZOHA SIGNAL TERMINAL v1.3 - REQUIREMENTS.TXT
-# ALL Quotex OTC Markets | BDT Timezone | PDF + Technical Strategies
-# =============================================================================
-
-# --- CORE WEB FRAMEWORK ---
-streamlit>=1.30.0          # Web UI framework for real-time signal dashboard
-
-# --- DATA SCIENCE & ANALYSIS ---
-pandas>=1.5.0              # DataFrame operations for signal storage
-numpy>=1.24.0              # Numerical computing & Monte Carlo simulations
-
-# --- ADVANCED VISUALIZATION ---
-plotly>=5.15.0             # Interactive charts (correlation, performance, strategy)
-plotly-express>=0.4.0      # Simplified Plotly syntax
-
-# --- TIMEZONE SUPPORT ---
-pytz>=2023.3               # BDT (Bangladesh Time) timezone handling
-
-# --- INSTALLATION ---
-# Install all: pip install -r requirements.txt
-# Upgrade all: pip install --upgrade -r requirements.txt
-
-# --- COMPATIBILITY NOTES ---
-# Python 3.9+ required for type hints and session state features
-# All packages verified for Streamlit Cloud deployment
+streamlit>=1.30.0
+pandas>=1.5.0
+numpy>=1.24.0
+plotly>=5.15.0
+plotly-express>=0.4.0
+pytz>=2023.3
