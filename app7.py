@@ -1,6 +1,6 @@
 # =============================================================================
-# ZOHA SIGNAL TERMINAL v1.0 - QUOTEX OTC EDITION
-# The Ultimate Glowing Signal Generator
+# ZOHA SIGNAL TERMINAL v1.1 - QUOTEX OTC EDITION
+# Fixed Pair Selection & BDT Timezone
 # =============================================================================
 
 import streamlit as st
@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import hashlib
 import json
+import pytz
 
 # ============================================================================
 # PAGE CONFIG & CUSTOM CSS - GLOWING THEME
@@ -26,17 +27,14 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Import futuristic font */
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;600;700&display=swap');
     
-    /* Global dark cyberpunk theme */
     .stApp {
         background: radial-gradient(circle at top, #0c0f1d 0%, #070a15 100%);
         font-family: 'Exo 2', sans-serif;
         color: #e0e0e0;
     }
     
-    /* Terminal header */
     .terminal-header {
         background: linear-gradient(90deg, #00ff88 0%, #00b8ff 50%, #9d00ff 100%);
         -webkit-background-clip: text;
@@ -56,7 +54,6 @@ st.markdown("""
         100% { text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
     }
     
-    /* Glowing signal cards - PRIMARY FEATURE */
     .glow-card {
         background: linear-gradient(135deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
         border-radius: 15px;
@@ -110,7 +107,6 @@ st.markdown("""
         box-shadow: 0 8px 32px rgba(255, 0, 102, 0.2);
     }
     
-    /* Cyberpunk metric boxes */
     .cyber-box {
         background: linear-gradient(135deg, rgba(0, 184, 255, 0.15) 0%, rgba(157, 0, 255, 0.15) 100%);
         border: 1px solid rgba(0, 184, 255, 0.3);
@@ -134,7 +130,6 @@ st.markdown("""
         text-shadow: 0 0 10px currentColor;
     }
     
-    /* Sidebar styling */
     .sidebar .block-container {
         background: rgba(10, 15, 30, 0.4);
         border-radius: 15px;
@@ -142,7 +137,6 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    /* Button cyberpunk style */
     .stButton>button {
         background: linear-gradient(90deg, #00ff88 0%, #00b8ff 100%);
         border: none;
@@ -161,7 +155,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Tab styling */
     .stTab>button {
         background: rgba(20, 25, 45, 0.5);
         border-radius: 10px 10px 0 0;
@@ -176,11 +169,9 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
     }
     
-    /* Remove Streamlit branding */
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Scrollbar styling */
     ::-webkit-scrollbar {
         width: 8px;
     }
@@ -191,6 +182,18 @@ st.markdown("""
         background: linear-gradient(45deg, #00ff88, #00b8ff);
         border-radius: 4px;
     }
+    
+    /* BDT Timezone indicator */
+    .bdt-indicator {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 165, 0, 0.2) 100%);
+        border: 1px solid rgba(255, 215, 0, 0.4);
+        border-radius: 8px;
+        padding: 8px;
+        text-align: center;
+        font-family: 'Orbitron';
+        font-size: 0.9rem;
+        color: #FFD700;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -199,7 +202,7 @@ st.markdown("""
 # ============================================================================
 
 class Config:
-    # CORRECT QUOTEX OTC MARKETS ONLY
+    # PURE QUOTEX OTC MARKETS ONLY
     QUOTEX_OTC_MARKETS = {
         '🔥 Volatility Indices': [
             'VOLATILITY_10', 'VOLATILITY_25', 'VOLATILITY_50', 'VOLATILITY_75', 'VOLATILITY_100'
@@ -226,11 +229,26 @@ class Config:
         ]
     }
     
-    # Flatten for processing
+    # BDT Timezone (Bangladesh Time = UTC+6)
+    BDT_TZ = pytz.timezone('Asia/Dhaka')
+    
     VALID_MARKETS = [pair for category in QUOTEX_OTC_MARKETS.values() for pair in category]
+    SIGNAL_INTERVAL_MINUTES = 4
 
 # ============================================================================
-# SYNTHETIC DATA ENGINE
+# BDT TIME CONVERSION
+# ============================================================================
+
+def get_bdt_time():
+    """Get current time in BDT timezone"""
+    return datetime.now(Config.BDT_TZ).replace(second=0, microsecond=0)
+
+def convert_to_bdt(utc_datetime):
+    """Convert UTC datetime to BDT"""
+    return utc_datetime.astimezone(Config.BDT_TZ).strftime('%H:%M:%S')
+
+# ============================================================================
+# DATA ENGINE
 # ============================================================================
 
 class DataEngine:
@@ -255,16 +273,16 @@ class DataEngine:
             vol = 0.0025
         elif 'OTC_GOLD' in pair:
             vol = 0.0012
-        elif any(x in pair for x in ['OTC_US', 'OTC_UK', 'OTC_JAPAN', 'OTC_GERMANY']):
+        elif any(x in pair for x in ['OTC_US', 'OTC_UK', 'OTC_JAPAN']):
             vol = 0.0008
         else:
             vol = 0.001
         
-        # Session multiplier
-        hour = datetime.utcnow().hour
-        mult = 2.5 if 13 <= hour < 16 else 1.2
+        # Add BDT session awareness (Bangladesh trading hours)
+        bdt_hour = get_bdt_time().hour
+        session_mult = 2.0 if (9 <= bdt_hour <= 15) else 1.0  # Active during Bangladesh day
         
-        returns = np.random.normal(0, vol * mult, bars)
+        returns = np.random.normal(0, vol * session_mult, bars)
         prices = 100 + np.cumsum(returns * 100)
         
         df = pd.DataFrame({
@@ -272,7 +290,7 @@ class DataEngine:
             'high': prices[1:] + np.abs(np.random.normal(0, vol * 40, bars-1)),
             'low': prices[1:] - np.abs(np.random.normal(0, vol * 40, bars-1)),
             'close': prices[1:],
-            'volume': np.random.poisson(15000 * mult, bars-1),
+            'volume': np.random.poisson(15000 * session_mult, bars-1),
             'spread': np.random.normal(0.4, 0.08, bars-1)
         })
         
@@ -283,7 +301,7 @@ class DataEngine:
         return self.cache.get(pair, pd.DataFrame())
 
 # ============================================================================
-# STRATEGY ENGINE - ALL 7 STRATEGIES
+# STRATEGY ENGINE
 # ============================================================================
 
 class StrategyEngine:
@@ -423,7 +441,7 @@ class StrategyEngine:
         return max(valid, key=lambda x: x[2])
 
 # ============================================================================
-# PERSISTENT STORAGE - NO CONTRADICTIONS
+# PERSISTENT STORAGE
 # ============================================================================
 
 class SignalStore:
@@ -441,24 +459,22 @@ class SignalStore:
         consistent_signals = []
         
         for signal in signals:
-            # FIX: Use tuple of immutable values for hash
+            # FIX: Use immutable tuple for hash
             signal_key = f"{signal['pair']}_{signal['time']}_{signal['strategy']}"
             signal_hash = hashlib.md5(signal_key.encode()).hexdigest()[:12]
             
-            # Check for existing
             if signal_hash in self.store['signal_hash_map']:
                 prev = self.store['signal_hash_map'][signal_hash]
                 signal['direction'] = prev['direction']
                 signal['accuracy'] = max(signal['accuracy'], prev['accuracy'])
                 signal['note'] = 'Synced with previous'
             
-            # Store
             self.store['signal_hash_map'][signal_hash] = signal
             self.store['pair_history'][signal['pair']].append(signal)
             consistent_signals.append(signal)
         
-        self.store['generated_signals'].extend(consistent_signals)
         self.store['generation_count'] += 1
+        self.store['generated_signals'].extend(consistent_signals)
         
         return consistent_signals
 
@@ -480,11 +496,6 @@ class AnalyticsEngine:
             results.append(final_price > 1 if direction == 'UP' else final_price < 1)
         
         return np.mean(results)
-    
-    @staticmethod
-    def kelly_criterion(win_rate, win_loss_ratio):
-        kelly = win_rate - ((1 - win_rate) / win_loss_ratio)
-        return max(min(kelly, 0.25), 0)
 
 # ============================================================================
 # PRO SIGNAL GENERATOR
@@ -517,13 +528,14 @@ class ProSignalGenerator:
                 mc_accuracy = self.analytics.monte_carlo(df, direction, 5000)
                 final_confidence = (base_confidence + mc_accuracy) / 2
                 
-                base_time = datetime.now() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
-                signal_time = base_time.replace(second=0, microsecond=0)
+                # FIX: Use BDT time for signals
+                base_time = get_bdt_time() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
+                signal_time = base_time
                 
                 signals.append({
                     'id': f"ZOHA-{datetime.now().strftime('%Y%m%d')}-{i+1:03d}",
                     'pair': pair,
-                    'time': signal_time.strftime('%H:%M:%S'),
+                    'time_bdt': signal_time.strftime('%H:%M:%S'),  # BDT time
                     'direction': direction,
                     'entry_price': round(entry_price, 5),
                     'accuracy': round(final_confidence * 100, 1),
@@ -531,15 +543,18 @@ class ProSignalGenerator:
                     'expected_move_pct': round(np.random.uniform(1.5, 4.0) * final_confidence, 2),
                     'strategy': signal_type,
                     'strategies_used': ', '.join(self.strategy_engine.strategies_used),
-                    'timestamp': signal_time,
-                    'expires_at': signal_time + timedelta(hours=self.prediction_hours),
+                    'timestamp_utc': datetime.utcnow(),
+                    'timestamp_bdt': signal_time,
+                    'expires_at_bdt': signal_time + timedelta(hours=self.prediction_hours),
                     'status': 'ACTIVE'
                 })
             else:
+                # Fallback with BDT time
+                fb_time = get_bdt_time() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)
                 signals.append({
                     'id': f"ZOHA-FB-{i+1:03d}",
                     'pair': pair,
-                    'time': (datetime.now() + timedelta(minutes=i * Config.SIGNAL_INTERVAL_MINUTES)).strftime('%H:%M:%S'),
+                    'time_bdt': fb_time.strftime('%H:%M:%S'),
                     'direction': np.random.choice(['UP', 'DOWN']),
                     'entry_price': round(df['close'].iloc[-1], 5) if not df.empty else 100.00,
                     'accuracy': round(np.random.uniform(70, 85), 1),
@@ -547,15 +562,16 @@ class ProSignalGenerator:
                     'expected_move_pct': round(np.random.uniform(1.0, 2.5), 2),
                     'strategy': 'FALLBACK',
                     'strategies_used': 'None',
-                    'timestamp': datetime.now(),
-                    'expires_at': datetime.now() + timedelta(hours=self.prediction_hours),
+                    'timestamp_utc': datetime.utcnow(),
+                    'timestamp_bdt': fb_time,
+                    'expires_at_bdt': fb_time + timedelta(hours=self.prediction_hours),
                     'status': 'FALLBACK'
                 })
         
         return self.signal_store.generate_consistent_signals(signals)
 
 # ============================================================================
-# CHARTS
+# VISUALIZATIONS
 # ============================================================================
 
 def create_charts(signals):
@@ -564,16 +580,17 @@ def create_charts(signals):
     np.fill_diagonal(corr_data, 1.0)
     
     fig_corr = go.Figure(data=go.Heatmap(z=corr_data, x=pairs, y=pairs, colorscale='RdBu', zmid=0))
-    fig_corr.update_layout(title="Cross-Pair Correlation", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
+    fig_corr.update_layout(title="Cross-Pair Correlation Matrix", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
     strat_counts = pd.Series([s['strategy'] for s in signals]).value_counts().head(5)
     fig_strat = go.Figure(data=[go.Pie(labels=strat_counts.index, values=strat_counts.values, hole=0.5)])
     fig_strat.update_layout(title="Strategy Distribution", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
-    times = [datetime.strptime(s['time'], '%H:%M:%S') for s in signals]
+    # Use BDT times for chart
+    times = [datetime.strptime(s['time_bdt'], '%H:%M:%S') for s in signals]
     accs = np.cumsum([s['accuracy'] for s in signals])
     fig_perf = go.Figure(go.Scatter(x=times, y=accs, mode='lines+markers', line=dict(color='#00ff88', width=3)))
-    fig_perf.update_layout(title="Cumulative Accuracy", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
+    fig_perf.update_layout(title="Cumulative Accuracy Trajectory (BDT Time)", paper_bgcolor='rgba(0,0,0,0)', font=dict(color="#e0e0e0"))
     
     return {'correlation': fig_corr, 'strategy': fig_strat, 'performance': fig_perf}
 
@@ -586,8 +603,8 @@ def main():
     st.markdown("""
     <div style="text-align: center; padding: 40px 20px;">
         <h1 class="terminal-header">ZOHA SIGNAL TERMINAL</h1>
-        <p style="color: #94a3b8; font-size: 1.3rem; margin-top: -10px; font-family: 'Orbitron', sans-serif; letter-spacing: 2px;">
-            Quotex OTC Signal Generator v1.0
+        <p style="color: #94a3b8; font-size: 1.3rem; margin-top: -10px; font-family: 'Orbitron'; letter-spacing: 2px;">
+            Quotex OTC Signal Generator v1.1
         </p>
         <div style="height: 2px; background: linear-gradient(90deg, transparent 0%, #00ff88 50%, transparent 100%); margin-top: 20px;"></div>
     </div>
@@ -601,28 +618,45 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        # BDT Time indicator
+        st.markdown("""
+        <div class="bdt-indicator">
+            🕐 BDT TIME: {}
+        </div>
+        """.format(get_bdt_time().strftime('%H:%M:%S')), unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
         st.subheader("📡 Market Selection")
         
         # Category selection with icons
         selected_cats = st.multiselect(
-            "Select Categories:",
+            "Select Market Categories:",
             options=list(Config.QUOTEX_OTC_MARKETS.keys()),
             default=['🔥 Volatility Indices', '📈 Step Indices'],
             help="Choose which market categories to analyze"
         )
         
         # Get pairs from categories
-        selected_pairs = []
-        for cat in selected_cats:
-            selected_pairs.extend(Config.QUOTEX_OTC_MARKETS[cat])
+        if selected_cats:
+            selected_pairs = []
+            for cat in selected_cats:
+                selected_pairs.extend(Config.QUOTEX_OTC_MARKETS[cat])
+        else:
+            selected_pairs = []
         
-        # Individual pair refinement
+        # Individual pair selection (refinement)
+        st.markdown("**Refine Pairs:**")
         selected_pairs = st.multiselect(
-            "Refine Pairs:",
+            "Choose specific pairs:",
             options=selected_pairs,
             default=selected_pairs[:5] if selected_pairs else [],
-            help="Select specific pairs (Ctrl/Cmd+click for multiple)"
+            help="Ctrl/Cmd+click to select multiple. Leave as is to use all from categories."
         )
+        
+        # FIX: Show error message but don't break flow
+        if not selected_pairs:
+            st.error("❌ NO PAIRS SELECTED! Please select at least one category or pair.")
         
         # Glowing info box
         st.markdown(f"""
@@ -633,11 +667,13 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        st.markdown("---")
+        
         st.subheader("⏱️ Prediction Settings")
         
         col1, col2 = st.columns(2)
         with col1:
-            hours = st.slider("Hours", 1, 24, 4, help="Prediction timeframe")
+            hours = st.slider("Hours", 1, 24, 4, help="Hours ahead to predict")
         with col2:
             minutes = st.slider("Minutes", 0, 59, 0, help="Additional minutes")
         
@@ -654,39 +690,42 @@ def main():
         
         risk_mult = {"Conservative": 0.8, "Balanced": 1.0, "Aggressive": 1.15}[risk_style]
         
-        # Generate button with glow effect
+        # FIX: Generate button logic - only enable if pairs selected
         st.markdown("---")
         if st.button("🚀 GENERATE 50 GLOWING SIGNALS", type="primary", use_container_width=True, help="Launch signal generation"):
             if not selected_pairs:
-                st.error("❌ NO PAIRS SELECTED!")
+                st.error("❌ NO PAIRS SELECTED! Please select markets first.")
+                st.stop()
             else:
+                # FIX: Use simple flag to trigger generation
                 st.session_state['generate'] = {
                     'pairs': selected_pairs,
                     'hours': total_prediction,
                     'risk_mult': risk_mult
                 }
+                st.session_state['generate_clicked'] = True
         
         # System status
         st.markdown("""
         <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin-top: 20px;">
             <p style="color: #94a3b8; font-size: 0.9rem;">
-                <b>System Status:</b> <span style="color: #00ff88;">ONLINE</span><br>
-                <b>Battery:</b> <span style="color: #10b981;">100%</span><br>
-                <b>Connection:</b> <span style="color: #10b981;">SECURE</span>
+                <b>System:</b> <span style="color: #00ff88;">ONLINE</span><br>
+                <b>Version:</b> v1.1 BDT<br>
+                <b>Protocol:</b> Zero Contradiction
             </p>
         </div>
         """, unsafe_allow_html=True)
     
     # Main content area
-    if 'generate' in st.session_state:
+    if st.session_state.get('generate_clicked', False) and 'generate' in st.session_state:
         data = st.session_state['generate']
         
-        # Loading animation
-        with st.spinner("🎯 Initializing 7 strategy layers..."):
+        # Show loading with glowing effect
+        with st.spinner("🎯 Initializing 7 strategy engines..."):
             time.sleep(0.5)
-        with st.spinner("⚡ Running Monte Carlo validation (10,000 simulations per signal)..."):
+        with st.spinner("⚡ Running Monte Carlo validation..."):
             time.sleep(0.5)
-        with st.spinner("🔮 Generating glowing signals..."):
+        with st.spinner("🔮 Generating glowing signals in BDT timezone..."):
             generator = ProSignalGenerator(data['pairs'], data['hours'])
             signals = generator.generate_50_signals()
         
@@ -694,10 +733,11 @@ def main():
         for sig in signals:
             sig['accuracy'] = min(99.0, sig['accuracy'] * data['risk_mult'])
         
-        # Create glowing metric boxes
+        # Success banner with glow
         st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); border-radius: 15px; padding: 20px; margin-bottom: 30px;">
-            <h2 style="color: #00ff88; text-align: center; font-family: 'Orbitron'; text-shadow: 0 0 10px #00ff88;">📊 SIGNAL GENERATION COMPLETE</h2>
+        <div style="background: linear-gradient(135deg, rgba(0,255,136,0.2) 0%, rgba(0,184,255,0.2) 100%); border: 2px solid rgba(0,255,136,0.4); border-radius: 15px; padding: 20px; margin-bottom: 30px;">
+            <h2 style="color: #00ff88; text-align: center; font-family: 'Orbitron'; text-shadow: 0 0 10px #00ff88;">✅ SIGNAL GENERATION COMPLETE</h2>
+            <p style="color: #94a3b8; text-align: center;">All signals are in BDT timezone (Bangladesh Time)</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -716,26 +756,25 @@ def main():
                 st.markdown(f"""
                 <div class="cyber-box">
                     <h3 style="color: {color}; text-shadow: 0 0 10px {color};">{value}</h3>
-                    <p style="color: #94a3b8; margin: 0;">{label}</p>
+                    <p style="color: #94a3b8;">{label}</p>
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Tabs with glow effect
-        tabs = st.tabs(["🎯 SIGNALS", "📈 ANALYTICS", "💾 EXPORT"])
+        # Tabs
+        tabs = st.tabs(["🎯 GLOWING SIGNALS", "📈 ANALYTICS", "💾 EXPORT"])
         
         with tabs[0]:
-            # DataTable with glow
+            # DataTable with BDT time
             st.markdown("""
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.2); border-radius: 10px; padding: 10px;">
-                <h3 style="color: #00ff88; text-align: center;">🔥 Live Signal Feed</h3>
+                <h3 style="color: #00ff88; text-align: center;">🔥 Live Signal Feed (BDT Time)</h3>
             </div>
             """, unsafe_allow_html=True)
             
             df_table = pd.DataFrame(signals)
-            display_df = df_table[['id', 'pair', 'time', 'direction', 'accuracy', 'prediction_hours', 'expected_move_pct', 'strategy']]
-            display_df.columns = ['ID', 'Pair', 'Time', 'Direction', 'Accuracy %', 'Hours', 'Move %', 'Strategy']
+            display_df = df_table[['id', 'pair', 'time_bdt', 'direction', 'accuracy', 'prediction_hours', 'expected_move_pct', 'strategy']]
+            display_df.columns = ['ID', 'Pair', 'BDT Time', 'Direction', 'Accuracy %', 'Hours', 'Move %', 'Strategy']
             
-            # Style the dataframe
             st.dataframe(
                 display_df.style.applymap(
                     lambda x: 'background-color: rgba(0,255,136,0.3); color: #00ff88; font-weight: bold' if x == 'UP' 
@@ -746,7 +785,7 @@ def main():
                 height=400
             )
             
-            # Glowing signal cards section
+            # Glowing signal cards
             st.markdown("""
             <div style="background: linear-gradient(90deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); height: 2px; margin: 30px 0;"></div>
             <h3 style="color: #00b8ff; text-align: center; font-family: 'Orbitron'; text-shadow: 0 0 10px #00b8ff;">⚡ GLOWING SIGNAL CARDS</h3>
@@ -756,7 +795,6 @@ def main():
             
             for idx, signal in enumerate(signals[:20]):
                 with cols[idx % 5]:
-                    # Determine glow color
                     glow_color = "#00ff88" if signal['direction'] == 'UP' else "#ff0066"
                     bg_color = "rgba(0, 255, 136, 0.1)" if signal['direction'] == 'UP' else "rgba(255, 0, 102, 0.1)"
                     
@@ -765,24 +803,18 @@ def main():
                         <h4 style="color: {glow_color}; text-shadow: 0 0 10px {glow_color};">{signal['direction']}</h4>
                         <p style="font-size: 1.1rem; font-weight: 600; color: #e0e0e0;">{signal['pair']}</p>
                         <p style="font-size: 0.9rem; color: #94a3b8; line-height: 1.4;">
-                            Time: <b>{signal['time']}</b><br>
+                            BDT: <b>{signal['time_bdt']}</b><br>
                             Accuracy: <span style="color: {glow_color}; font-weight: bold;">{signal['accuracy']}%</span><br>
                             Expires: <b>{signal['prediction_hours']}h</b><br>
                             Move: <span style="color: #00b8ff;">{signal['expected_move_pct']}%</span>
                         </p>
                         <div style="background: rgba(0,0,0,0.4); border-radius: 5px; padding: 5px; margin-top: 10px;">
-                            <small style="color: #94a3b8; font-size: 0.7rem;">ID: {signal['id']}</small>
+                            <small style="color: #94a3b8; font-size: 0.7rem;">{signal['strategy']}</small>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
         
         with tabs[1]:
-            st.markdown("""
-            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px;">
-                <h3 style="color: #00b8ff; text-align: center;">📊 Advanced Analytics Dashboard</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
             charts = create_charts(signals)
             
             col1, col2 = st.columns(2)
@@ -794,31 +826,13 @@ def main():
             st.plotly_chart(charts['performance'], use_container_width=True)
         
         with tabs[2]:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,184,255,0.1) 100%); border-radius: 10px; padding: 15px;">
-                <h3 style="color: #00ff88; text-align: center;">💾 Data Export Hub</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
             csv = df_table.to_csv(index=False)
-            st.download_button(
-                "📥 DOWNLOAD CSV", 
-                csv, 
-                f"ZOHA_Signals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", 
-                "text/csv", 
-                use_container_width=True
-            )
+            st.download_button("📥 DOWNLOAD CSV", csv, f"ZOHA_Signals_BDT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv", use_container_width=True)
             
-            json_export = json.dumps(signals[:3], indent=2, default=str)
-            st.download_button(
-                "📄 EXPORT SAMPLE JSON", 
-                json_export, 
-                f"ZOHA_Sample_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", 
-                "application/json", 
-                use_container_width=True
-            )
+            sample_json = json.dumps(signals[:3], indent=2, default=str)
+            st.download_button("📄 EXPORT SAMPLE JSON", sample_json, f"ZOHA_Sample_BDT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", "application/json", use_container_width=True)
         
-        # Footer with system info
+        # Footer
         st.markdown("""
         <div style="background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,255,136,0.05) 100%); border: 1px solid rgba(0,255,136,0.2); border-radius: 15px; padding: 25px; margin-top: 40px;">
             <h3 style="color: #00ff88; font-family: 'Orbitron'; text-align: center; margin-bottom: 15px;">🔒 SYSTEM STATUS: OPERATIONAL</h3>
@@ -841,23 +855,23 @@ def main():
                 </div>
             </div>
             <p style="color: #94a3b8; text-align: center; margin-top: 15px; font-size: 0.9rem;">
-                ZOHA SIGNAL TERMINAL v1.0 | QUOTEX OTC EDITION | ZERO CONTRADICTION PROTOCOL
+                ZOHA SIGNAL TERMINAL v1.1 BDT | QUOTEX OTC EDITION | ZERO CONTRADICTION PROTOCOL
             </p>
         </div>
         """, unsafe_allow_html=True)
         
         # Regenerate button
         st.markdown("---")
-        if st.button("🔄 INITIATE NEW GLOWING BATCH", type="secondary", help="Clear memory and generate fresh signals", use_container_width=True):
+        if st.button("🔄 INITIATE NEW GLOWING BATCH (Clear Memory)", type="secondary", help="Reset and generate fresh signals", use_container_width=True):
+            st.session_state['generate_clicked'] = False
             if 'signal_store' in st.session_state:
                 del st.session_state['signal_store']
-            st.session_state['generate_clicked'] = False
             st.success("✅ Memory cleared! Ready for new generation.")
             time.sleep(1)
             st.experimental_rerun()
     
     else:
-        # Empty state with animated welcome
+        # Empty state with welcome message
         st.markdown("""
         <div style="text-align: center; padding: 80px 20px;">
             <svg width="150" height="150" viewBox="0 0 100 100" style="margin-bottom: 30px; filter: drop-shadow(0 0 20px rgba(0,255,136,0.5));">
@@ -887,7 +901,7 @@ def main():
         """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    # FIX: Initialize session state variables to avoid NameError
+    # FIX: Initialize session state safely
     if 'generate_clicked' not in st.session_state:
         st.session_state['generate_clicked'] = False
     if 'signal_store' not in st.session_state:
@@ -897,5 +911,7 @@ if __name__ == "__main__":
             'signal_hash_map': {},
             'generation_count': 0
         }
+    if 'generate' not in st.session_state:
+        st.session_state['generate'] = None
     
     main()
