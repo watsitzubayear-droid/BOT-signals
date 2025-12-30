@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-Quotex 1-min OTC Neural-Signal Generator
-Streams 27 pairs via TwelveData websocket → 80 %+ win-rate logic → prints CALL/PUT alerts.
-Drop into any repo, add your TD_KEY secret, run:  python quotex_neural_signals.py
+Quotex 1-min OTC Neural-Signal Generator  –  TA-Lib-free edition
 """
-import os, json, websocket, talib, numpy as np
+import os, json, websocket, numpy as np
 from datetime import datetime
 from threading import Thread
 from collections import deque
@@ -19,10 +17,46 @@ PAIRS = [
 BUF = 500
 signals = []
 
-def ema(arr, n): return talib.EMA(np.array(arr), n)
-def rsi(arr, n): return talib.RSI(np.array(arr), n)
-def atr(h, l, c, n): return talib.ATR(np.array(h), np.array(l), np.array(c), n)
+# ---------- lightweight indicator helpers ----------
+def _ema(arr, n):
+    """NumPy-only EMA"""
+    k = 2 / (n + 1)
+    ema = np.zeros_like(arr, dtype=float)
+    ema[0] = arr[0]
+    for i in range(1, len(arr)):
+        ema[i] = arr[i] * k + ema[i-1] * (1 - k)
+    return ema
 
+def _rsi(arr, n=7):
+    """NumPy-only RSI"""
+    deltas = np.diff(arr)
+    seed = deltas[:n+1]
+    up = seed[seed >= 0].sum() / n
+    down = -seed[seed < 0].sum() / n
+    rs = up / down
+    rsi = np.zeros_like(arr)
+    rsi[:n] = 100. - 100. / (1. + rs)
+    for i in range(n, len(arr)):
+        delta = deltas[i-1]
+        if delta > 0:
+            upval = delta
+            downval = 0.
+        else:
+            upval = 0.
+            downval = -delta
+        up = (up * (n - 1) + upval) / n
+        down = (down * (n - 1) + downval) / n
+        rs = up / down
+        rsi[i] = 100. - 100. / (1. + rs)
+    return rsi
+
+def _atr(h, l, c, n=14):
+    """NumPy-only ATR"""
+    tr = np.maximum(h - l, np.maximum(np.abs(h - np.roll(c, 1)), np.abs(l - np.roll(c, 1))))
+    tr[0] = tr[1]  # first NaN
+    return _ema(tr, n)
+
+# ---------- per-pair engine ----------
 class Engine:
     def __init__(self, symbol):
         self.s = symbol
@@ -30,19 +64,20 @@ class Engine:
         self.high  = deque(maxlen=BUF)
         self.low   = deque(maxlen=BUF)
     def on_candle(self, c):
-        o, h, l, cl = float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"])
+        o, h, l, cl = map(float, (c["open"], c["high"], c["low"], c["close"]))
         self.high.append(h); self.low.append(l); self.close.append(cl)
         if len(self.close) < 25: return
-        ema5, ema20 = ema(self.close, 5)[-1], ema(self.close, 20)[-1]
-        rsi7 = rsi(self.close, 7)[-1]
-        atr14 = atr(self.high, self.low, self.close, 14)[-1]
+        arr = np.array(self.close)
+        ema5, ema20 = _ema(arr, 5)[-1], _ema(arr, 20)[-1]
+        rsi7 = _rsi(arr, 7)[-1]
+        atr14 = _atr(np.array(self.high), np.array(self.low), arr, 14)[-1]
         rng = h - l
         if ema5 > ema20 and 50 < rsi7 < 70 and rng > atr14 * 0.2:
-            if ema(self.close, 5)[-2] <= ema(self.close, 20)[-2]:
+            if _ema(arr, 5)[-2] <= _ema(arr, 20)[-2]:
                 sig = {"pair": self.s, "dir": "CALL", "price": cl, "time": datetime.utcnow().isoformat()}
                 print(json.dumps(sig)); signals.append(sig)
         elif ema5 < ema20 and 30 < rsi7 < 50 and rng > atr14 * 0.2:
-            if ema(self.close, 5)[-2] >= ema(self.close, 20)[-2]:
+            if _ema(arr, 5)[-2] >= _ema(arr, 20)[-2]:
                 sig = {"pair": self.s, "dir": "PUT",  "price": cl, "time": datetime.utcnow().isoformat()}
                 print(json.dumps(sig)); signals.append(sig)
 
