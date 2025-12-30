@@ -1,3 +1,2 @@
 websocket-client==1.6.4
-numpy==1.24.3 --only-binary=:all:
-https://github.com/TA-Lib/ta-lib-python/releases/download/v0.4.26/talib_binary-0.4.26-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+numpy==1.24.3
