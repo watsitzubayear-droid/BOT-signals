@@ -1,26 +1,35 @@
 #!/usr/bin/env python3
-"""
-Highly-accurate 1-min OTC signal generator for Quotex (Py 3.13 ready, no binaries)
-Streams 27 pairs via TwelveData → 80 %+ hit-rate logic → prints CALL/PUT alerts.
-Run:  export TD_KEY=your_key   &&   streamlit run quotex_high_acc_signals.py
-"""
-import os, json, websocket, math
+import os
+import json
+import websocket
+import time
+import pandas as pd
+import streamlit as st
 from datetime import datetime
 from threading import Thread
 from collections import deque
 
-API_KEY = os.getenv("TD_KEY") or st.text_input("TwelveData API key", type="password")
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Quotex High-Acc Signals", layout="wide")
+
+# API Key handling
+API_KEY = os.getenv("TD_KEY")
+if not API_KEY:
+    API_KEY = st.sidebar.text_input("TwelveData API Key", type="password")
+
 PAIRS = [
     "EUR/USD","USD/JPY","GBP/USD","AUD/USD","USD/CAD","NZD/USD","USD/CHF",
-    "BTC/USD","ETH/USD","LTC/USD","XRP/USD","EUR/JPY","GBP/JPY","EUR/GBP",
-    "EUR/CHF","GBP/CHF","AUD/JPY","CAD/JPY","CHF/JPY","EURAUD","EURCAD",
-    "GBPAUD","GBPCAD","NZDJPY","AUDCAD","AUDNZD","USDSGD"
+    "BTC/USD","ETH/USD","LTC/USD","XRP/USD","EUR/JPY","GBP/JPY"
 ]
-BUF   = 500
-signals = []
+BUF = 500
 
-# ---------- pure-Python indicators ----------
+# Global state for signals
+if 'signal_history' not in st.session_state:
+    st.session_state.signal_history = deque(maxlen=20)
+
+# ---------- PURE-PYTHON INDICATORS ----------
 def _ema(arr, n):
+    if len(arr) < n: return [0] * len(arr)
     k = 2 / (n + 1)
     ema = [0] * len(arr)
     ema[0] = arr[0]
@@ -29,84 +38,106 @@ def _ema(arr, n):
     return ema
 
 def _rsi(arr, n=7):
+    if len(arr) <= n: return [50] * len(arr)
     deltas = [arr[i+1] - arr[i] for i in range(len(arr)-1)]
-    up   = [d if d > 0 else 0 for d in deltas[:n]]
-    down = [-d if d < 0 else 0 for d in deltas[:n]]
-    avg_up, avg_down = sum(up)/n, sum(down)/n
-    rs = (avg_up / avg_down) if avg_down else 1e9
-    rsi_vals = [0] * len(arr)
-    rsi_vals[n] = 100 - 100 / (1 + rs)
-    for i in range(n, len(arr)-1):
-        delta = deltas[i]
-        avg_up   = (avg_up   * (n-1) + (delta if delta > 0 else 0)) / n
-        avg_down = (avg_down * (n-1) + (-delta if delta < 0 else 0)) / n
-        rs = avg_up / avg_down if avg_down else 1e9
-        rsi_vals[i+1] = 100 - 100 / (1 + rs)
+    up = [d if d > 0 else 0 for d in deltas]
+    down = [-d if d < 0 else 0 for d in deltas]
+    
+    rsi_vals = [50] * len(arr)
+    avg_up = sum(up[:n])/n
+    avg_down = sum(down[:n])/n
+    
+    for i in range(n, len(arr)):
+        d_u = up[i-1]
+        d_d = down[i-1]
+        avg_up = (avg_up * (n-1) + d_u) / n
+        avg_down = (avg_down * (n-1) + d_d) / n
+        rs = avg_up / avg_down if avg_down != 0 else 100
+        rsi_vals[i] = 100 - (100 / (1 + rs))
     return rsi_vals
 
-def _atr(h, l, c, n=14):
-    tr = [max(h[i]-l[i], abs(h[i]-c[i-1]), abs(l[i]-c[i-1])) for i in range(1, len(c))]
-    tr.insert(0, tr[0])  # duplicate first
-    return _ema(tr, n)
-
-# ---------- per-pair engine ----------
+# ---------- SIGNAL ENGINE ----------
 class Engine:
     def __init__(self, symbol):
         self.s = symbol
         self.close = deque(maxlen=BUF)
-        self.high  = deque(maxlen=BUF)
-        self.low   = deque(maxlen=BUF)
+        self.high = deque(maxlen=BUF)
+        self.low = deque(maxlen=BUF)
+
     def on_candle(self, c):
-        o, h, l, cl = map(float, (c["open"], c["high"], c["low"], c["close"]))
-        self.high.append(h); self.low.append(l); self.close.append(cl)
-        if len(self.close) < 25: return
-        arr  = list(self.close)
-        ema5, ema20 = _ema(arr, 5)[-1], _ema(arr, 20)[-1]
-        rsi7  = _rsi(arr, 7)[-1]
-        atr14 = _atr(list(self.high), list(self.low), arr, 14)[-1]
-        rng   = h - l
-        # --- high-accuracy setup ---
-        if ema5 > ema20 and 50 < rsi7 < 70 and rng > atr14 * 0.2:
-            if _ema(arr, 5)[-2] <= _ema(arr, 20)[-2]:
-                sig = {"pair": self.s, "dir": "CALL", "price": round(cl, 5), "time": datetime.utcnow().strftime("%H:%M:%S")}
-                print(json.dumps(sig)); signals.append(sig)
-        elif ema5 < ema20 and 30 < rsi7 < 50 and rng > atr14 * 0.2:
-            if _ema(arr, 5)[-2] >= _ema(arr, 20)[-2]:
-                sig = {"pair": self.s, "dir": "PUT",  "price": round(cl, 5), "time": datetime.utcnow().strftime("%H:%M:%S")}
-                print(json.dumps(sig)); signals.append(sig)
+        try:
+            o, h, l, cl = map(float, (c["open"], c["high"], c["low"], c["close"]))
+            self.high.append(h); self.low.append(l); self.close.append(cl)
+            
+            if len(self.close) < 25: return None
+            
+            arr = list(self.close)
+            ema5_list = _ema(arr, 5)
+            ema20_list = _ema(arr, 20)
+            rsi7 = _rsi(arr, 7)[-1]
+            
+            curr_e5, prev_e5 = ema5_list[-1], ema5_list[-2]
+            curr_e20, prev_e20 = ema20_list[-1], ema20_list[-2]
+            
+            # --- STRAT: EMA CROSSOVER + RSI FILTER ---
+            # CALL: 5 crosses above 20 + RSI bullish but not overbought
+            if curr_e5 > curr_e20 and prev_e5 <= prev_e20 and 50 < rsi7 < 70:
+                return {"Pair": self.s, "Dir": "CALL 🟢", "Price": round(cl, 5), "Time": datetime.now().strftime("%H:%M:%S")}
+            
+            # PUT: 5 crosses below 20 + RSI bearish but not oversold
+            elif curr_e5 < curr_e20 and prev_e5 >= prev_e20 and 30 < rsi7 < 50:
+                return {"Pair": self.s, "Dir": "PUT 🔴", "Price": round(cl, 5), "Time": datetime.now().strftime("%H:%M:%S")}
+        except Exception:
+            pass
+        return None
 
 engines = {p: Engine(p) for p in PAIRS}
 
-def on_msg(_, msg):
-    d = json.loads(msg)
-    if d.get("event") == "price":
-        sym = d["data"]["symbol"]
-        if sym in engines: engines[sym].on_candle(d["data"])
+# ---------- WEBSOCKET LOGIC ----------
+def on_message(ws, msg):
+    data = json.loads(msg)
+    if data.get("event") == "price":
+        symbol = data["data"]["symbol"]
+        if symbol in engines:
+            sig = engines[symbol].on_candle(data["data"])
+            if sig:
+                st.session_state.signal_history.appendleft(sig)
 
-def start_stream():
-    ws = websocket.WebSocketApp(f"wss://ws.twelvedata.com/v1?apikey={API_KEY}",
-                                on_message=on_msg)
+def on_open(ws):
+    subscribe_msg = {
+        "action": "subscribe",
+        "params": {"symbols": ",".join(PAIRS)}
+    }
+    ws.send(json.dumps(subscribe_msg))
+
+def run_ws():
+    ws = websocket.WebSocketApp(
+        f"wss://ws.twelvedata.com/v1?apikey={API_KEY}",
+        on_open=on_open,
+        on_message=on_message
+    )
     ws.run_forever()
 
-# ---------- Streamlit UI (optional but nice) ----------
-try:
-    import streamlit as st
-    st.set_page_config(page_title="Quotex High-Acc Signals", layout="centered")
-    st.title("🔮  Quotex 1-min High-Accuracy Signals")
-    if st.button("🚀 Start Stream"):
-        Thread(target=start_stream, daemon=True).start()
-        st.success("Streaming …  check terminal below")
-    log = st.empty()
+# ---------- STREAMLIT UI ----------
+st.title("🔮 Quotex 1-Min Signal Generator")
+st.caption("Strategy: EMA 5/20 Crossover + RSI Momentum Filter")
+
+col1, col2 = st.columns([1, 3])
+
+with col1:
+    if st.button("🚀 Start Signal Stream"):
+        if not API_KEY:
+            st.error("Missing API Key")
+        else:
+            Thread(target=run_ws, daemon=True).start()
+            st.success("Engine Running...")
+
+with col2:
+    placeholder = st.empty()
     while True:
-        import time
-        if signals:
-            for sig in signals.copy():
-                log.json(sig)
-            signals.clear()
-        time.sleep(1)
-except ImportError:
-    # no streamlit → plain console
-    Thread(target=start_stream, daemon=True).start()
-    while True:
-        import time
-        time.sleep(1)
+        if st.session_state.signal_history:
+            df = pd.DataFrame(list(st.session_state.signal_history))
+            placeholder.table(df)
+        else:
+            placeholder.info("Waiting for market crossovers...")
+        time.sleep(2)
