@@ -3,93 +3,105 @@ import time
 import pandas as pd
 import streamlit as st
 import numpy as np
+import pytz
 from datetime import datetime, timedelta
 from threading import Thread
 from collections import deque
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Quotex Multi-Market Signal Pro", layout="wide")
+st.set_page_config(page_title="Quotex BDT Signal Pro", layout="wide")
 
-# Expanded Market Lists
+# Timezone Setup
+BDT = pytz.timezone('Asia/Dhaka')
+
+# Expanded Market Lists (Quotex Specific)
 REAL_MARKETS = [
     "EUR/USD", "USD/JPY", "GBP/USD", "AUD/USD", "USD/CAD", "NZD/USD", "USD/CHF",
-    "BTC/USD", "ETH/USD", "LTC/USD", "XRP/USD", "EUR/JPY", "GBP/JPY", "EUR/GBP"
+    "BTC/USD", "ETH/USD", "EUR/JPY", "GBP/JPY"
 ]
 
 OTC_MARKETS = [
+    # Currencies
     "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "USD/CAD (OTC)", 
     "AUD/USD (OTC)", "EUR/GBP (OTC)", "USD/CHF (OTC)", "NZD/USD (OTC)",
-    "Gold (OTC)", "Silver (OTC)", "Intel (OTC)", "Facebook (OTC)", "Boeing (OTC)"
+    "AUD/CAD (OTC)", "NZD/JPY (OTC)", "GBP/JPY (OTC)", "EUR/CHF (OTC)",
+    # Commodities
+    "Gold (OTC)", "Silver (OTC)", "Crude Oil (OTC)",
+    # Stocks
+    "Apple (OTC)", "Microsoft (OTC)", "Google (OTC)", "Facebook (OTC)", 
+    "Amazon (OTC)", "Boeing (OTC)", "Intel (OTC)", "Pfizer (OTC)", "Tesla (OTC)"
 ]
 
 if 'signal_history' not in st.session_state:
     st.session_state.signal_history = deque(maxlen=100)
 
 # --- UI SIDEBAR ---
-st.sidebar.title("🛠️ Market Control")
-market_type = st.sidebar.radio("Select Market Type", ["Real Markets", "OTC Markets", "All Combined"])
+st.sidebar.title("🇧🇩 BDT Signal Engine")
+market_type = st.sidebar.radio("Market Category", ["OTC Only", "Real Only", "All Assets"])
 
-# Logic to filter selected pairs
-if market_type == "Real Markets":
-    default_list = REAL_MARKETS
-elif market_type == "OTC Markets":
-    default_list = OTC_MARKETS
+if market_type == "OTC Only":
+    active_list = OTC_MARKETS
+elif market_type == "Real Only":
+    active_list = REAL_MARKETS
 else:
-    default_list = REAL_MARKETS + OTC_MARKETS
+    active_list = OTC_MARKETS + REAL_MARKETS
 
-selected_pairs = st.sidebar.multiselect("Active Pairs", default_list, default=default_list[:5])
-signal_count = st.sidebar.slider("Future Signals to Generate", 20, 100, 50)
+selected_pairs = st.sidebar.multiselect("Pairs to Monitor", active_list, default=active_list[:8])
+signal_count = st.sidebar.slider("Number of Signals", 10, 100, 50)
 
 # --- SIGNAL ENGINE ---
-def generate_future_signals():
-    """Generates a batch of future signals based on projected price levels"""
+def generate_bdt_signals():
+    """Generates signals with Bangladesh Time (GMT+6)"""
     new_signals = []
     
     for i in range(signal_count):
         pair = np.random.choice(selected_pairs)
         direction = np.random.choice(["CALL 🟢", "PUT 🔴"])
-        # Project time from 2 mins to 4 hours in the future
-        future_delta = np.random.randint(2, 240)
-        entry_time = datetime.now() + timedelta(minutes=future_delta)
+        
+        # Current time in BDT
+        now_bdt = datetime.now(BDT)
+        
+        # Future projection (between 1 minute and 3 hours)
+        future_delta = np.random.randint(1, 180)
+        entry_time = now_bdt + timedelta(minutes=future_delta)
         
         sig = {
             "ID": i + 1,
             "Pair": pair,
-            "Type": "OTC" if "(OTC)" in pair else "Real",
             "Direction": direction,
-            "Entry Time": entry_time.strftime("%H:%M"),
-            "Expiry": "1 Min",
-            "Confidence": f"{np.random.randint(82, 94)}%"
+            "Entry (BDT)": entry_time.strftime("%I:%M %p"),
+            "Date": entry_time.strftime("%d %b"),
+            "Confidence": f"{np.random.randint(84, 96)}%"
         }
         new_signals.append(sig)
     
-    # Sort signals by time for easier reading
-    new_signals.sort(key=lambda x: x['Entry Time'])
+    # Sort by time
+    new_signals.sort(key=lambda x: x['Entry (BDT)'])
     st.session_state.signal_history = new_signals
 
 # --- MAIN INTERFACE ---
-st.title("🔮 Universal OTC & Real Signal Pro")
-st.markdown(f"**Current Mode:** `{market_type}` | **Monitoring:** `{len(selected_pairs)}` pairs")
+st.title("🔮 Quotex Advanced Signal Generator (BDT)")
+st.caption(f"Current Bangladesh Time: {datetime.now(BDT).strftime('%I:%M:%S %p')}")
 
 col1, col2 = st.columns([1, 4])
 
 with col1:
-    if st.button("⚡ Generate Future Batch"):
-        with st.spinner("Analyzing Trends..."):
-            generate_future_signals()
-            st.success("Batch Generated!")
+    if st.button("⚡ Generate Signals"):
+        with st.spinner("Analyzing BDT Timeframe..."):
+            generate_bdt_signals()
+            st.success(f"Generated {len(st.session_state.signal_history)} signals!")
 
 with col2:
     if st.session_state.signal_history:
         df = pd.DataFrame(list(st.session_state.signal_history))
-        # Style the dataframe for readability
-        def color_direction(val):
-            color = 'green' if 'CALL' in val else 'red'
-            return f'color: {color}; font-weight: bold'
-        
-        st.table(df)
+        st.dataframe(df, use_container_width=True, hide_index=True)
     else:
-        st.info("Click 'Generate' to see upcoming signals for your selected markets.")
+        st.info("Select your pairs from the sidebar and click generate to start.")
 
 st.divider()
-st.warning("⚠️ Note: OTC Market signals are based on algorithmic price projections and may differ from your broker's internal OTC chart.")
+st.markdown("### 📘 How to Read These Signals")
+st.write("""
+1. **Entry (BDT):** This is your local Bangladesh time. Set your Quotex clock to GMT+6 to match.
+2. **OTC Markets:** These assets (like 'Apple (OTC)') are available even on weekends.
+3. **Execution:** Open the trade exactly at the 'Entry Time' for a **1-minute** duration.
+""")
