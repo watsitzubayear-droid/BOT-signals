@@ -80,26 +80,26 @@ class Engine:
             curr_e20, prev_e20 = ema20_list[-1], ema20_list[-2]
             
             # --- STRAT: EMA CROSSOVER + RSI FILTER ---
-            # CALL: 5 crosses above 20 + RSI bullish but not overbought
             if curr_e5 > curr_e20 and prev_e5 <= prev_e20 and 50 < rsi7 < 70:
                 return {"Pair": self.s, "Dir": "CALL 🟢", "Price": round(cl, 5), "Time": datetime.now().strftime("%H:%M:%S")}
             
-            # PUT: 5 crosses below 20 + RSI bearish but not oversold
             elif curr_e5 < curr_e20 and prev_e5 >= prev_e20 and 30 < rsi7 < 50:
                 return {"Pair": self.s, "Dir": "PUT 🔴", "Price": round(cl, 5), "Time": datetime.now().strftime("%H:%M:%S")}
         except Exception:
             pass
         return None
 
-engines = {p: Engine(p) for p in PAIRS}
+# Dictionary to hold pair engines
+if 'engines' not in st.session_state:
+    st.session_state.engines = {p: Engine(p) for p in PAIRS}
 
 # ---------- WEBSOCKET LOGIC ----------
 def on_message(ws, msg):
     data = json.loads(msg)
     if data.get("event") == "price":
         symbol = data["data"]["symbol"]
-        if symbol in engines:
-            sig = engines[symbol].on_candle(data["data"])
+        if symbol in st.session_state.engines:
+            sig = st.session_state.engines[symbol].on_candle(data["data"])
             if sig:
                 st.session_state.signal_history.appendleft(sig)
 
@@ -122,22 +122,22 @@ def run_ws():
 st.title("🔮 Quotex 1-Min Signal Generator")
 st.caption("Strategy: EMA 5/20 Crossover + RSI Momentum Filter")
 
-col1, col2 = st.columns([1, 3])
-
-with col1:
-    if st.button("🚀 Start Signal Stream"):
-        if not API_KEY:
-            st.error("Missing API Key")
-        else:
+if st.button("🚀 Start Signal Stream"):
+    if not API_KEY:
+        st.error("Please enter your TwelveData API Key in the sidebar.")
+    else:
+        # Prevent multiple threads from starting
+        if 'ws_started' not in st.session_state:
             Thread(target=run_ws, daemon=True).start()
-            st.success("Engine Running...")
+            st.session_state.ws_started = True
+            st.success("Streaming started. Signals will appear below as they trigger.")
 
-with col2:
-    placeholder = st.empty()
-    while True:
-        if st.session_state.signal_history:
-            df = pd.DataFrame(list(st.session_state.signal_history))
-            placeholder.table(df)
-        else:
-            placeholder.info("Waiting for market crossovers...")
-        time.sleep(2)
+# Display area
+placeholder = st.empty()
+while True:
+    if st.session_state.signal_history:
+        df = pd.DataFrame(list(st.session_state.signal_history))
+        placeholder.table(df)
+    else:
+        placeholder.info("Waiting for market crossovers... ensure the market is open.")
+    time.sleep(1)
